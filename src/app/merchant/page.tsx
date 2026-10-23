@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { CheckCircle2, Circle, ExternalLink } from "lucide-react";
 import { availabilityOf, requireMerchantStore } from "@/lib/supermarkets";
+import { inventoryCounts } from "@/lib/merchant-products";
 import { formatInstant } from "@/lib/time";
 import { ApprovalBadge, ApprovalNotice } from "@/components/approval";
 import { ServiceBadges, StoreStateBadge } from "@/components/store-status";
 import { ClosureControl, PauseControl } from "@/components/forms/merchant-controls";
-import { Card, Page, SectionTitle } from "@/components/ui";
+import { Card, Page, SectionTitle, StatTile } from "@/components/ui";
 
 export default async function MerchantDashboard() {
   const { store } = await requireMerchantStore();
@@ -13,11 +14,13 @@ export default async function MerchantDashboard() {
   const a = availabilityOf(store, now);
   const active = (d: Date | null) => (d && d > now ? formatInstant(d) : null);
   const editable = store.status !== "SUSPENDED";
+  const counts = await inventoryCounts(store.id);
 
   const checklist: [string, boolean, string][] = [
     ["Add your logo", Boolean(store.logoUrl), "/merchant/profile"],
     ["Set your map location", store.latitude !== null && store.longitude !== null, "/merchant/profile"],
     ["Set opening hours", store.hours.some((h) => h.isOpen), "/merchant/hours"],
+    ["Add your products", counts.total > 0, "/merchant/products"],
     ["Tell us about your POS system", Boolean(store.posProvider), "/merchant/profile#pos"],
   ];
 
@@ -51,6 +54,28 @@ export default async function MerchantDashboard() {
           <ServiceBadges availability={a} />
         </div>
       </Card>
+
+      <section>
+        <SectionTitle
+          action={
+            <Link href="/merchant/products" className="text-xs font-bold text-brand-700">
+              Manage products
+            </Link>
+          }
+        >
+          Products
+        </SectionTitle>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatTile label="Listed" value={counts.total} />
+          <StatTile label="In stock" value={counts.inStock} tone="green" />
+          <Link href="/merchant/products?status=LOW_STOCK">
+            <StatTile label="Low stock" value={counts.lowStock} tone={counts.lowStock ? "yellow" : "gray"} />
+          </Link>
+          <Link href="/merchant/products?status=OUT_OF_STOCK">
+            <StatTile label="Out of stock" value={counts.outOfStock} tone={counts.outOfStock ? "red" : "gray"} />
+          </Link>
+        </div>
+      </section>
 
       {editable && (
         <Card className="space-y-5 divide-y divide-gray-100 [&>*:not(:first-child)]:pt-5">

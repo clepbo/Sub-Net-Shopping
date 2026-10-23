@@ -52,6 +52,22 @@ export default async function AdminOverview() {
       </section>
 
       <section className="space-y-2">
+        <SectionTitle
+          action={
+            <Link href="/admin/categories" className="text-xs font-bold text-brand-700">
+              Categories
+            </Link>
+          }
+        >
+          Catalogue
+        </SectionTitle>
+        <div className="grid grid-cols-2 gap-2">
+          <StatTile label="Products" value={stats.products} hint="Unique catalogue items" />
+          <StatTile label="Store listings" value={stats.listings} hint="Across all supermarkets" />
+        </div>
+      </section>
+
+      <section className="space-y-2">
         <SectionTitle>Accounts</SectionTitle>
         <div className="grid grid-cols-2 gap-2">
           <StatTile label="Customers" value={stats.customers} tone="blue" />

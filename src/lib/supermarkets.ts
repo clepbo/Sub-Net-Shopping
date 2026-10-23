@@ -27,6 +27,16 @@ export async function requireMerchantStore(opts: { managerOnly?: boolean } = {})
   return { user, store: membership.supermarket, staffRole: membership.role };
 }
 
+/**
+ * The merchant's store for an edit. Suspended stores are read-only, so
+ * `blocked` carries the message to show instead of saving.
+ */
+export async function requireEditableStore() {
+  const ctx = await requireMerchantStore({ managerOnly: true });
+  const blocked = ctx.store.status === "SUSPENDED" ? "This supermarket is suspended. Contact Sub Net support to make changes." : null;
+  return { ...ctx, blocked };
+}
+
 /** Approved supermarkets visible to customers, optionally filtered by a search term. */
 export async function listApprovedSupermarkets(query?: string) {
   const q = query?.trim();

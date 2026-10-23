@@ -2,9 +2,23 @@
 
 A mobile-first web app that connects shoppers in Benin City with **verified supermarkets**, plus web dashboards for supermarkets, delivery riders and platform admins.
 
-This repository implements **Phase 1 — Core Foundation** from the product requirements document (PRD §24), styled after the prototype's green-and-yellow mobile UI.
+It works on phones and desktop browsers: phones get a compact header and a bottom tab bar; desktops get a full header with search and a category menu, and dashboards get a sidebar.
 
-## What's in Phase 1
+This repository implements **Phase 1 — Core Foundation** and **Phase 2 — Products & Inventory** from the product requirements document (PRD §24–25).
+
+## Phase 2 — Products & inventory
+
+| Role | Can do |
+| --- | --- |
+| **Customer** | Browse products by category · search products, brands and supermarkets · filter by supermarket and stock, sort by price · **compare one product's price, stock and store status across every supermarket that sells it**, cheapest first · shop a single supermarket's products from its page |
+| **Supermarket** | Add products: first search the shared catalogue and "sell this" (so shoppers can compare prices), or create a new product with brand, size, barcode, category, description and photos · set its own SKU, price, stock and status (available, out of stock, hidden) · edit price and stock inline in the product list · **import products from a CSV** exported from a POS or Excel (common POS column names recognised, per-row error report) · see stock counts on the dashboard |
+| **Admin** | Manage categories and subcategories · see catalogue totals |
+
+How the catalogue works: a **product** is the shared identity of an item (name, brand, size, barcode, photos), and a **listing** is one supermarket's SKU, price and stock for it. Products are matched across stores by barcode, or when a store picks an existing product. Only the supermarket that created a product can change its shared details. Stock of 5 or fewer shows as "Low stock" and 0 as "Out of stock".
+
+Cart, checkout, payments and Reserve & Pick Up are Phase 3–4, so product pages don't show "Add to cart" yet.
+
+## Phase 1 — Core foundation
 
 | Role | Can do |
 | --- | --- |
@@ -13,9 +27,7 @@ This repository implements **Phase 1 — Core Foundation** from the product requ
 | **Rider** | Register with vehicle details (starts **pending approval**) · edit vehicle · go online / offline once approved |
 | **Admin** | Live platform stats (no demo data) · approve, reject, suspend and reactivate supermarkets and riders, with reasons sent to them · search users and suspend or reactivate accounts · set supermarket and rider commission rates · view platform activity |
 
-Foundations laid for later phases: product, category, inventory (price in kobo, stock, SKU, source) and product-image tables; a storage abstraction for images; a provider-agnostic POS sync pipeline (`src/lib/pos`) that adapters plug into; commission maths; notifications and an activity log.
-
-Out of scope for Phase 1 (per the PRD): product shopping, cart, checkout, payments, Reserve & Pick Up flow, delivery pricing, rider assignment and GPS tracking.
+Also in place for later phases: a provider-agnostic POS sync pipeline (`src/lib/pos`) that live POS adapters plug into, commission maths, notifications and an activity log.
 
 ## Tech stack
 
@@ -47,7 +59,7 @@ Admins can't sign up through the app; use `npm run admin:create`. Everyone else 
 | --- | --- |
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build / server |
-| `npm test` | Unit tests |
+| `npm test` | Unit tests, plus database tests when `DATABASE_URL` is set |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:deploy` | Apply migrations in production |
@@ -82,11 +94,15 @@ prisma/schema.prisma        Data model (users, supermarkets, hours, riders, cata
 src/proxy.ts                Redirects signed-out users and wrong roles away from protected sections
 src/lib/auth.ts             getCurrentUser / requireUser(role) — re-checks the user in the DB on every request
 src/lib/availability.ts     Open/closed, pickup and delivery status from hours, cut-offs, closures and pauses
+src/lib/catalog.ts          Product browsing, search and cross-store price comparison
+src/lib/inventory.ts        Stock status rules and the listing upsert shared by CSV import and POS sync
+src/lib/csv-import.ts       CSV parsing and validation for product imports
 src/lib/validation.ts       zod schemas for every form
 src/lib/storage.ts          Image storage: Vercel Blob, or local disk for development
 src/lib/pos/                POS integration contract and inventory sync
 src/app/actions/            Server Actions — each one authorises the caller itself
-src/app/(pages)             /, /search, /stores/[id], /merchant, /rider, /admin, /account…
+src/app/(shop)/             Customer pages: /, /categories, /products, /products/[id], /search, /stores/[id]…
+src/app/merchant|rider|admin Dashboards (sidebar on desktop)
 ```
 
 **Access control.** The proxy is only a first filter. Every page and Server Action calls `requireUser(role)`, which loads the user from the database, so a suspended account or a revoked session stops working immediately. Merchants only ever act on the supermarket linked to their account through `SupermarketStaff`, never on an ID sent from the browser.

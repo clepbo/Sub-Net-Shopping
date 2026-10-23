@@ -2,21 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireMerchantStore } from "@/lib/supermarkets";
+import { requireEditableStore } from "@/lib/supermarkets";
 import { logActivity } from "@/lib/activity";
 import { deleteStoredFile, storeImage } from "@/lib/storage";
 import { lagosTimeToday } from "@/lib/time";
 import { formValues, type ActionState } from "@/lib/action-state";
 import { clockTime, fieldErrors, operatingSchedule, posIntegration, supermarketProfile } from "@/lib/validation";
-
-/** Store for a merchant action; suspended stores are read-only. */
-async function editableStore() {
-  const ctx = await requireMerchantStore({ managerOnly: true });
-  if (ctx.store.status === "SUSPENDED") {
-    return { ...ctx, blocked: "This supermarket is suspended. Contact Sub Net support to make changes." };
-  }
-  return { ...ctx, blocked: null };
-}
 
 function refresh() {
   revalidatePath("/merchant", "layout");
@@ -24,7 +15,7 @@ function refresh() {
 }
 
 export async function updateStoreProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await editableStore();
+  const { user, store, blocked } = await requireEditableStore();
   const values = formValues(formData);
   if (blocked) return { error: blocked, values };
   const parsed = supermarketProfile.safeParse(Object.fromEntries(formData));
@@ -37,7 +28,7 @@ export async function updateStoreProfile(_prev: ActionState, formData: FormData)
 }
 
 export async function updateSchedule(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await editableStore();
+  const { user, store, blocked } = await requireEditableStore();
   const values = formValues(formData);
   if (blocked) return { error: blocked, values };
 
@@ -84,7 +75,7 @@ export async function updateSchedule(_prev: ActionState, formData: FormData): Pr
 }
 
 export async function setTemporaryClosure(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await editableStore();
+  const { user, store, blocked } = await requireEditableStore();
   if (blocked) return { error: blocked };
   const closed = formData.get("closed") === "true";
   const note = String(formData.get("note") ?? "").trim().slice(0, 200) || null;
@@ -108,7 +99,7 @@ export async function setTemporaryClosure(_prev: ActionState, formData: FormData
  * "until" (with an HH:MM `until` field, today in Lagos time) or "resume".
  */
 export async function setServicePause(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await editableStore();
+  const { user, store, blocked } = await requireEditableStore();
   if (blocked) return { error: blocked };
   const service = formData.get("service");
   if (service !== "delivery" && service !== "pickup") return { error: "Unknown service" };
@@ -143,7 +134,7 @@ export async function setServicePause(_prev: ActionState, formData: FormData): P
 }
 
 export async function uploadLogo(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await editableStore();
+  const { user, store, blocked } = await requireEditableStore();
   if (blocked) return { error: blocked };
   const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose an image to upload" };
@@ -162,7 +153,7 @@ export async function uploadLogo(_prev: ActionState, formData: FormData): Promis
 }
 
 export async function updatePosIntegration(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await editableStore();
+  const { user, store, blocked } = await requireEditableStore();
   const values = formValues(formData);
   if (blocked) return { error: blocked, values };
   const parsed = posIntegration.safeParse(Object.fromEntries(formData));

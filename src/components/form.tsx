@@ -133,12 +133,16 @@ export function Select({
   ...props
 }: FieldProps & Omit<ComponentProps<"select">, "name"> & { options: { value: string; label: string }[] }) {
   const error = state?.fieldErrors?.[name];
+  const value = (state?.values?.[name] ?? defaultValue) as string | undefined;
   return (
     <FieldShell label={label} name={name} state={state} hint={hint} className={className}>
       <select
+        // React only applies a select's defaultValue on mount, and a form
+        // action resets the form afterwards, so remount to keep the submitted choice.
+        key={value}
         id={name}
         name={name}
-        defaultValue={(state?.values?.[name] ?? defaultValue) as string | undefined}
+        defaultValue={value}
         aria-invalid={error ? true : undefined}
         className={inputClass}
         {...props}

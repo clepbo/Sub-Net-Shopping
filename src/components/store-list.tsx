@@ -61,12 +61,12 @@ export function StoreList({ stores }: { stores: StoreCardData[] }) {
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
-      <ul className="space-y-3">
+      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {withDistance.map((s) => (
           <li key={s.id}>
             <Link
               href={`/stores/${s.id}`}
-              className="flex gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-brand-500"
+              className="flex h-full gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-brand-500"
             >
               <StoreLogo name={s.name} url={s.logoUrl} />
               <div className="min-w-0 flex-1 space-y-1.5">

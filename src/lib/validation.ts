@@ -187,3 +187,63 @@ export function fieldErrors(error: z.ZodError): FieldErrors {
   }
   return out;
 }
+
+// ─── Catalogue ─────────────────────────────────────────────────────────
+
+const naira = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    const cleaned = v.replace(/[₦,\s]/g, "");
+    if (!/^\d+(\.\d{1,2})?$/.test(cleaned) || Number(cleaned) <= 0 || Number(cleaned) > 100_000_000) {
+      ctx.addIssue({ code: "custom", message: "Enter a price in naira, e.g. 1500 or 1,250.50" });
+      return z.NEVER;
+    }
+    return Math.round(Number(cleaned) * 100);
+  });
+
+const optionalStock = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    if (v === "") return null;
+    if (!/^\d+$/.test(v) || Number(v) > 1_000_000) {
+      ctx.addIssue({ code: "custom", message: "Enter a whole number, or leave blank if you don't track stock" });
+      return z.NEVER;
+    }
+    return Number(v);
+  });
+
+export const listingFields = z.object({
+  sku: z.string().trim().min(1, "Enter your SKU or product code").max(60),
+  priceKobo: naira,
+  stockQuantity: optionalStock,
+  status: z.enum(["AVAILABLE", "OUT_OF_STOCK", "HIDDEN"]),
+});
+
+export const quickListingUpdate = z.object({ priceKobo: naira, stockQuantity: optionalStock });
+
+export const productDetails = z.object({
+  name: z.string().trim().min(2, "Enter the product name").max(160),
+  brand: optionalText(80),
+  unit: optionalText(40),
+  barcode: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/\s/g, ""))
+    .pipe(z.union([z.literal(""), z.string().regex(/^\d{6,14}$/, "Barcodes are 6–14 digits")]))
+    .transform((v) => v || null),
+  categoryId: z.string().trim().min(1, "Choose a category"),
+  description: optionalText(2000),
+  isBulky: z.boolean(),
+});
+
+export const categoryFields = z.object({
+  name: z.string().trim().min(2, "Enter a name").max(60),
+  icon: optionalText(8),
+  sortOrder: z.coerce.number().int().min(0).max(10_000),
+  parentId: z
+    .string()
+    .trim()
+    .transform((v) => v || null),
+});

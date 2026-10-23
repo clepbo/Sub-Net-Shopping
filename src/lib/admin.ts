@@ -10,12 +10,14 @@ export function parseApprovalStatus(value: string | undefined): ApprovalStatus |
 
 /** Dashboard counts (PRD §21) — always from the live database. */
 export async function platformStats() {
-  const [customers, supermarketsByStatus, ridersByStatus, activeRiders, suspendedAccounts] = await Promise.all([
+  const [customers, supermarketsByStatus, ridersByStatus, activeRiders, suspendedAccounts, products, listings] = await Promise.all([
     db.user.count({ where: { role: "CUSTOMER" } }),
     db.supermarket.groupBy({ by: ["status"], _count: true }),
     db.rider.groupBy({ by: ["status"], _count: true }),
     db.rider.count({ where: { isOnline: true, status: "APPROVED", user: { status: "ACTIVE" } } }),
     db.user.count({ where: { status: "SUSPENDED" } }),
+    db.product.count(),
+    db.inventory.count(),
   ]);
   const tally = (rows: { status: ApprovalStatus; _count: number }[]) => {
     const out = Object.fromEntries(APPROVAL_STATUSES.map((s) => [s, 0])) as Record<ApprovalStatus, number>;
@@ -28,5 +30,7 @@ export async function platformStats() {
     riders: tally(ridersByStatus),
     activeRiders,
     suspendedAccounts,
+    products,
+    listings,
   };
 }

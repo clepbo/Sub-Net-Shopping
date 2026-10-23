@@ -1,12 +1,9 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRider, VEHICLE_LABEL } from "@/lib/riders";
 import { formatDateTime } from "@/lib/time";
 import { ApprovalBadge, ApprovalNotice } from "@/components/approval";
 import { OnlineToggle } from "@/components/forms/rider-forms";
 import { Card, DefinitionList, Page, SectionTitle } from "@/components/ui";
-
-export const metadata: Metadata = { title: "Rider" };
 
 export default async function RiderDashboard() {
   const { user, rider } = await requireRider();

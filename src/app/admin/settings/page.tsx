@@ -33,9 +33,10 @@ export default async function AdminSettings() {
         </ul>
         <p className="mt-2 text-xs text-gray-500">Applied automatically once payments go live.</p>
       </Card>
-      <Link href="/admin/activity" className="block text-center text-sm font-bold text-brand-700">
-        View platform activity →
-      </Link>
+      <div className="flex justify-center gap-6 text-sm font-bold text-brand-700 lg:hidden">
+        <Link href="/admin/categories">Categories →</Link>
+        <Link href="/admin/activity">Platform activity →</Link>
+      </div>
     </Page>
   );
 }

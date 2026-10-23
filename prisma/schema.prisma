@@ -117,11 +117,13 @@ model Supermarket {
   updatedAt  DateTime  @updatedAt
   approvedAt DateTime?
 
-  hours     SupermarketHours[]
-  staff     SupermarketStaff[]
-  images    SupermarketImage[]
-  inventory Inventory[]
-  posSyncs  PosSyncRun[]
+  hours           SupermarketHours[]
+  staff           SupermarketStaff[]
+  images          SupermarketImage[]
+  inventory       Inventory[]
+  posSyncs        PosSyncRun[]
+  createdProducts Product[]          @relation("ProductCreator")
+  productImages   ProductImage[]
 
   @@index([status])
 }
@@ -202,47 +204,62 @@ model Rider {
 // price/stock changes.
 
 model Category {
-  id       String     @id @default(cuid())
-  name     String     @unique
-  slug     String     @unique
-  parentId String?
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryTree")
-  products Product[]
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  /// Emoji shown on category tiles, e.g. "🥛".
+  icon      String?
+  sortOrder Int        @default(0)
+  parentId  String?
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
 }
 
 model Product {
-  id          String    @id @default(cuid())
-  name        String
-  barcode     String?   @unique
-  description String?
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id])
+  id                     String       @id @default(cuid())
+  name                   String
+  brand                  String?
+  /// Pack size, e.g. "1 kg", "50cl", "x30".
+  unit                   String?
+  barcode                String?      @unique
+  description            String?
+  categoryId             String?
+  category               Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   /// Bulky items need a suitable vehicle (PRD §14).
-  isBulky     Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isBulky                Boolean      @default(false)
+  /// The supermarket that created this catalogue entry. Only it (or an
+  /// admin) may edit the shared details other stores also sell under.
+  createdBySupermarketId String?
+  createdBySupermarket   Supermarket? @relation("ProductCreator", fields: [createdBySupermarketId], references: [id], onDelete: SetNull)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   images    ProductImage[]
   inventory Inventory[]
 
   @@index([name])
+  @@index([categoryId])
 }
 
 model ProductImage {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   /// Owning store when a supermarket uploaded it; null for shared images.
   supermarketId String?
+  supermarket   Supermarket? @relation(fields: [supermarketId], references: [id], onDelete: SetNull)
   url           String
   storageKey    String
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
+  sortOrder     Int          @default(0)
+  createdAt     DateTime     @default(now())
+
+  @@index([productId, sortOrder])
 }
 
 enum InventorySource {
   MANUAL
+  CSV_IMPORT
   POS_SYNC
 }
 
@@ -272,6 +289,7 @@ model Inventory {
 
   @@unique([supermarketId, sku])
   @@unique([supermarketId, productId])
+  @@index([productId])
 }
 
 enum PosSyncStatus {
