@@ -9,6 +9,9 @@ const SECTIONS: { prefix: string; roles: Role[] | "any" }[] = [
   { prefix: "/rider", roles: ["RIDER"] },
   { prefix: "/admin", roles: ["ADMIN"] },
   { prefix: "/account", roles: "any" },
+  { prefix: "/cart", roles: ["CUSTOMER"] },
+  { prefix: "/checkout", roles: ["CUSTOMER"] },
+  { prefix: "/orders", roles: ["CUSTOMER"] },
   { prefix: "/notifications", roles: "any" },
 ];
 
@@ -30,5 +33,14 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/merchant/:path*", "/rider/:path*", "/admin/:path*", "/account/:path*", "/notifications/:path*"],
+  matcher: [
+    "/merchant/:path*",
+    "/rider/:path*",
+    "/admin/:path*",
+    "/account/:path*",
+    "/notifications/:path*",
+    "/cart/:path*",
+    "/checkout/:path*",
+    "/orders/:path*",
+  ],
 };

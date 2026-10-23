@@ -39,6 +39,8 @@ export type ProductSummary = {
   offers: number;
   /** Supermarkets with it in stock. */
   inStockOffers: number;
+  /** The cheapest listing; in a single-store browse, that store's listing. */
+  listingId: string;
 };
 
 export type BrowseOptions = {
@@ -99,7 +101,8 @@ export async function browseProducts(opts: BrowseOptions): Promise<{ items: Prod
         min(i."priceKobo")::int AS "minPriceKobo",
         max(i."priceKobo")::int AS "maxPriceKobo",
         count(*)::int AS "offers",
-        (${inStock})::int AS "inStockOffers"
+        (${inStock})::int AS "inStockOffers",
+        (array_agg(i."id" ORDER BY i."priceKobo"))[1] AS "listingId"
       ${base}
       ORDER BY ${order}
       LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,

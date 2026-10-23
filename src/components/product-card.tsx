@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import type { ProductSummary } from "@/lib/catalog";
 import { formatNaira } from "@/lib/money";
+import { AddToCart } from "./add-to-cart";
 import { cx } from "./ui";
 
 export function ProductImage({ src, alt, className }: { src: string | null; alt: string; className?: string }) {
@@ -21,37 +22,44 @@ export function ProductImage({ src, alt, className }: { src: string | null; alt:
 export function ProductCard({ product, storeContext = false }: { product: ProductSummary; storeContext?: boolean }) {
   const range = product.minPriceKobo !== product.maxPriceKobo;
   const outOfStock = product.inStockOffers === 0;
+  const canAdd = storeContext && !outOfStock;
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-brand-500 hover:shadow-md"
-    >
-      <div className="relative">
-        <ProductImage src={product.image} alt={product.name} className={cx("aspect-square p-3", outOfStock && "opacity-50")} />
-        {outOfStock && (
-          <span className="absolute top-2 left-2 rounded-full bg-gray-900/80 px-2 py-0.5 text-[10px] font-bold text-white">Out of stock</span>
-        )}
-        {!storeContext && product.offers > 1 && (
-          <span className="absolute top-2 right-2 rounded-full bg-accent-400 px-2 py-0.5 text-[10px] font-extrabold text-brand-950">
-            {product.offers} stores
-          </span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-1 border-t border-gray-100 p-3">
-        {product.brand && <p className="truncate text-[11px] font-bold tracking-wide text-gray-500 uppercase">{product.brand}</p>}
-        <h3 className="line-clamp-2 text-sm leading-snug font-semibold text-gray-900 group-hover:text-brand-800">{product.name}</h3>
-        {product.unit && <p className="text-xs text-gray-500">{product.unit}</p>}
-        <div className="mt-auto pt-1">
-          <p className="font-extrabold text-brand-800">
-            {range && <span className="text-xs font-semibold text-gray-500">from </span>}
-            {formatNaira(product.minPriceKobo)}
-          </p>
-          {!storeContext && (
-            <p className="text-[11px] text-gray-500">{product.offers > 1 ? `Compare ${product.offers} supermarkets` : "1 supermarket"}</p>
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-brand-500 hover:shadow-md">
+      <Link href={`/products/${product.id}`} className="group flex flex-1 flex-col">
+        <div className="relative">
+          <ProductImage src={product.image} alt={product.name} className={cx("aspect-square p-3", outOfStock && "opacity-50")} />
+          {outOfStock && (
+            <span className="absolute top-2 left-2 rounded-full bg-gray-900/80 px-2 py-0.5 text-[10px] font-bold text-white">
+              Out of stock
+            </span>
+          )}
+          {!storeContext && product.offers > 1 && (
+            <span className="absolute top-2 right-2 rounded-full bg-accent-400 px-2 py-0.5 text-[10px] font-extrabold text-brand-950">
+              {product.offers} stores
+            </span>
           )}
         </div>
-      </div>
-    </Link>
+        <div className="flex flex-1 flex-col gap-1 border-t border-gray-100 p-3">
+          {product.brand && <p className="truncate text-[11px] font-bold tracking-wide text-gray-500 uppercase">{product.brand}</p>}
+          <h3 className="line-clamp-2 text-sm leading-snug font-semibold text-gray-900 group-hover:text-brand-800">{product.name}</h3>
+          {product.unit && <p className="text-xs text-gray-500">{product.unit}</p>}
+          <div className="mt-auto pt-1">
+            <p className="font-extrabold text-brand-800">
+              {range && <span className="text-xs font-semibold text-gray-500">from </span>}
+              {formatNaira(product.minPriceKobo)}
+            </p>
+            {!storeContext && (
+              <p className="text-[11px] text-gray-500">{product.offers > 1 ? `Compare ${product.offers} supermarkets` : "1 supermarket"}</p>
+            )}
+          </div>
+        </div>
+      </Link>
+      {canAdd && (
+        <div className="px-3 pb-3">
+          <AddToCart inventoryId={product.listingId} returnTo={`/products/${product.id}`} compact />
+        </div>
+      )}
+    </div>
   );
 }
 

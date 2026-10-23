@@ -4,7 +4,19 @@ A mobile-first web app that connects shoppers in Benin City with **verified supe
 
 It works on phones and desktop browsers: phones get a compact header and a bottom tab bar; desktops get a full header with search and a category menu, and dashboards get a sidebar.
 
-This repository implements **Phase 1 — Core Foundation** and **Phase 2 — Products & Inventory** from the product requirements document (PRD §24–25).
+This repository implements Phases 1–3 of the product requirements document (PRD §24–26): **core foundation**, **products & inventory**, and **cart & orders**.
+
+## Phase 3 — Cart & orders
+
+Orders are **Reserve & Pick Up, paid at the store** for now: online payment arrives in Phase 4 and delivery in Phase 5. Each order records its payment method and fulfilment type, so those slot in later.
+
+| Role | Can do |
+| --- | --- |
+| **Customer** | Add items from any supermarket's listing (from the price comparison or the store's page) · one cart grouped by supermarket, each checked out as its own order · checkout shows pickup address and that payment is at the store, with an optional note · order page with order number, progress, store contact and directions · cancel before the store confirms · order history · notifications at every step |
+| **Supermarket** | Order queue (New, Preparing, Ready, Completed, Cancelled) with counts on the dashboard · reduce or remove unavailable items before confirming, with totals recalculated · confirm → mark ready → mark "payment received & collected" · cancel with a reason sent to the customer · notified of new and cancelled orders |
+| **Admin** | All orders with status filter · orders today, orders in progress, and collected value on the overview |
+
+Rules enforced on the server: checkout re-reads prices and stock from the database; it's refused when the store is closed, past its last order time, or has pickup paused; tracked stock is reserved at checkout with an atomic decrement (two shoppers can't both get the last item) and returned when items are reduced or orders cancelled; a double-tapped "Place order" creates one order; and order status changes lock the order row so two staff can't act on it at once.
 
 ## Phase 2 — Products & inventory
 
@@ -15,8 +27,6 @@ This repository implements **Phase 1 — Core Foundation** and **Phase 2 — Pro
 | **Admin** | Manage categories and subcategories · see catalogue totals |
 
 How the catalogue works: a **product** is the shared identity of an item (name, brand, size, barcode, photos), and a **listing** is one supermarket's SKU, price and stock for it. Products are matched across stores by barcode, or when a store picks an existing product. Only the supermarket that created a product can change its shared details. Stock of 5 or fewer shows as "Low stock" and 0 as "Out of stock".
-
-Cart, checkout, payments and Reserve & Pick Up are Phase 3–4, so product pages don't show "Add to cart" yet.
 
 ## Phase 1 — Core foundation
 
@@ -97,11 +107,14 @@ src/lib/availability.ts     Open/closed, pickup and delivery status from hours, 
 src/lib/catalog.ts          Product browsing, search and cross-store price comparison
 src/lib/inventory.ts        Stock status rules and the listing upsert shared by CSV import and POS sync
 src/lib/csv-import.ts       CSV parsing and validation for product imports
+src/lib/cart.ts             Cart grouped by supermarket, with every line re-checked
+src/lib/order-rules.ts      Order status machine and totals
+src/lib/orders.ts           Checkout, stock reservation, status changes, item adjustments
 src/lib/validation.ts       zod schemas for every form
 src/lib/storage.ts          Image storage: Vercel Blob, or local disk for development
 src/lib/pos/                POS integration contract and inventory sync
 src/app/actions/            Server Actions — each one authorises the caller itself
-src/app/(shop)/             Customer pages: /, /categories, /products, /products/[id], /search, /stores/[id]…
+src/app/(shop)/             Customer pages: /, /categories, /products, /search, /stores/[id], /cart, /checkout, /orders…
 src/app/merchant|rider|admin Dashboards (sidebar on desktop)
 ```
 

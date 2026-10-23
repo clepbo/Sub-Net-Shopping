@@ -55,6 +55,9 @@ model User {
   ownedMarkets  Supermarket[]      @relation("SupermarketOwner")
   notifications Notification[]
   activity      ActivityLog[]      @relation("ActivityActor")
+  cartItems     CartItem[]
+  orders        Order[]            @relation("CustomerOrders")
+  orderEvents   OrderEvent[]
 
   @@index([role, status])
 }
@@ -124,6 +127,7 @@ model Supermarket {
   posSyncs        PosSyncRun[]
   createdProducts Product[]          @relation("ProductCreator")
   productImages   ProductImage[]
+  orders          Order[]
 
   @@index([status])
 }
@@ -287,6 +291,9 @@ model Inventory {
   lastSyncedAt  DateTime?
   updatedAt     DateTime        @updatedAt
 
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
   @@unique([supermarketId, sku])
   @@unique([supermarketId, productId])
   @@index([productId])
@@ -309,6 +316,116 @@ model PosSyncRun {
   error         String?
   startedAt     DateTime      @default(now())
   finishedAt    DateTime?
+}
+
+// ─── Cart & orders (PRD §10, Phase 3) ─────────────────────────────────
+
+/// A customer's basket. Items can come from several supermarkets; each
+/// supermarket's items check out as a separate order.
+model CartItem {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  quantity    Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, inventoryId])
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  READY_FOR_PICKUP
+  COLLECTED
+  CANCELLED
+}
+
+enum Fulfilment {
+  PICKUP
+  DELIVERY
+}
+
+enum PaymentMethod {
+  /// Paid at the supermarket on collection (until online payment, Phase 4).
+  PAY_AT_STORE
+  ONLINE
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  /// Human-friendly reference shown to customers and staff, e.g. SN-4821937.
+  number          String        @unique
+  customerId      String
+  customer        User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  supermarketId   String
+  supermarket     Supermarket   @relation(fields: [supermarketId], references: [id])
+  status          OrderStatus   @default(PLACED)
+  fulfilment      Fulfilment    @default(PICKUP)
+  paymentMethod   PaymentMethod @default(PAY_AT_STORE)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  subtotalKobo    Int
+  deliveryFeeKobo Int           @default(0)
+  totalKobo       Int
+  customerNote    String?
+  /// Client-generated key so a double-submitted checkout creates one order.
+  checkoutKey     String        @unique
+  cancelReason    String?
+  placedAt        DateTime      @default(now())
+  confirmedAt     DateTime?
+  readyAt         DateTime?
+  collectedAt     DateTime?
+  cancelledAt     DateTime?
+  updatedAt       DateTime      @updatedAt
+
+  items  OrderItem[]
+  events OrderEvent[]
+
+  @@index([customerId, placedAt])
+  @@index([supermarketId, status, placedAt])
+}
+
+/// A line on an order, with name and price copied at checkout so history
+/// stays accurate when the catalogue changes.
+model OrderItem {
+  id                String     @id @default(cuid())
+  orderId           String
+  order             Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inventoryId       String?
+  inventory         Inventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  productId         String?
+  name              String
+  unit              String?
+  sku               String
+  unitPriceKobo     Int
+  /// What the customer asked for.
+  requestedQuantity Int
+  /// What the store will supply; the store can lower it before confirming.
+  quantity          Int
+  lineTotalKobo     Int
+  /// Whether stock was reserved (only for listings that track stock).
+  stockReserved     Boolean    @default(false)
+}
+
+model OrderEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  actorId   String?
+  actor     User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 // ─── Platform ─────────────────────────────────────────────────────────

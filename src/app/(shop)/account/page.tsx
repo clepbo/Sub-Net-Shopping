@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/app/actions/auth";
@@ -16,6 +17,11 @@ export default async function AccountPage() {
       <PageTitle title={`${user.firstName} ${user.lastName}`} subtitle={ROLE_NAME[user.role]} />
       <Card>
         <DefinitionList items={[["Email", user.email]]} />
+        {user.role === "CUSTOMER" && (
+          <Link href="/orders" className="mt-2 inline-block text-sm font-bold text-brand-700">
+            My orders →
+          </Link>
+        )}
       </Card>
       <Card>
         <SectionTitle>Profile</SectionTitle>

@@ -6,6 +6,7 @@ import { browseProducts, getProductWithOffers } from "@/lib/catalog";
 import { AVAILABILITY_LABEL } from "@/lib/inventory";
 import { formatNaira } from "@/lib/money";
 import { availabilityOf } from "@/lib/supermarkets";
+import { AddToCart } from "@/components/add-to-cart";
 import { ProductGallery } from "@/components/product-gallery";
 import { ProductRail } from "@/components/product-card";
 import { StoreLogo } from "@/components/store-logo";
@@ -83,8 +84,8 @@ export default async function ProductPage({ params }: Props) {
 
           {product.description && <p className="text-sm leading-relaxed whitespace-pre-line text-gray-700">{product.description}</p>}
 
-          <Notice tone="blue" title="Ordering is coming soon">
-            Cart, checkout and Reserve &amp; Pick Up are being added next. For now, compare prices and visit the store.
+          <Notice tone="green" title="Reserve &amp; Pick Up, pay at the store">
+            Choose a supermarket below and add to cart. You pay when you collect. Delivery is coming soon.
           </Notice>
         </div>
       </div>
@@ -132,6 +133,11 @@ export default async function ProductPage({ params }: Props) {
                       </Badge>
                     </div>
                   </div>
+                  {offer.availability !== "OUT_OF_STOCK" && (
+                    <div className="sm:ml-2">
+                      <AddToCart inventoryId={offer.id} returnTo={`/products/${product.id}`} />
+                    </div>
+                  )}
                 </Card>
               </li>
             );

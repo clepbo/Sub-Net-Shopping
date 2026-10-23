@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { platformStats } from "@/lib/admin";
+import { formatNaira } from "@/lib/money";
 import { ActivityList } from "@/components/activity-list";
 import { Card, Page, PageTitle, SectionTitle, StatTile } from "@/components/ui";
 
@@ -32,6 +33,23 @@ export default async function AdminOverview() {
           </Link>
         </div>
       )}
+
+      <section className="space-y-2">
+        <SectionTitle
+          action={
+            <Link href="/admin/orders" className="text-xs font-bold text-brand-700">
+              All orders
+            </Link>
+          }
+        >
+          Orders
+        </SectionTitle>
+        <div className="grid grid-cols-3 gap-2">
+          <StatTile label="Today" value={stats.ordersToday} tone="blue" />
+          <StatTile label="In progress" value={stats.openOrders} tone={stats.openOrders ? "yellow" : "gray"} />
+          <StatTile label="Collected" value={formatNaira(stats.collectedValueKobo)} tone="green" hint={`${stats.collectedOrders} orders`} />
+        </div>
+      </section>
 
       <section className="space-y-2">
         <SectionTitle>Supermarkets</SectionTitle>

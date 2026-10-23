@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, Circle, ExternalLink } from "lucide-react";
 import { availabilityOf, requireMerchantStore } from "@/lib/supermarkets";
 import { inventoryCounts } from "@/lib/merchant-products";
+import { orderCounts } from "@/lib/merchant-orders";
 import { formatInstant } from "@/lib/time";
 import { ApprovalBadge, ApprovalNotice } from "@/components/approval";
 import { ServiceBadges, StoreStateBadge } from "@/components/store-status";
@@ -14,7 +15,7 @@ export default async function MerchantDashboard() {
   const a = availabilityOf(store, now);
   const active = (d: Date | null) => (d && d > now ? formatInstant(d) : null);
   const editable = store.status !== "SUSPENDED";
-  const counts = await inventoryCounts(store.id);
+  const [counts, orders] = await Promise.all([inventoryCounts(store.id), orderCounts(store.id)]);
 
   const checklist: [string, boolean, string][] = [
     ["Add your logo", Boolean(store.logoUrl), "/merchant/profile"],
@@ -54,6 +55,29 @@ export default async function MerchantDashboard() {
           <ServiceBadges availability={a} />
         </div>
       </Card>
+
+      <section>
+        <SectionTitle
+          action={
+            <Link href="/merchant/orders" className="text-xs font-bold text-brand-700">
+              All orders
+            </Link>
+          }
+        >
+          Orders to handle
+        </SectionTitle>
+        <div className="grid grid-cols-3 gap-2">
+          <Link href="/merchant/orders?tab=new">
+            <StatTile label="New" value={orders.PLACED} tone={orders.PLACED ? "yellow" : "gray"} hint="To confirm" />
+          </Link>
+          <Link href="/merchant/orders?tab=preparing">
+            <StatTile label="Preparing" value={orders.CONFIRMED} tone={orders.CONFIRMED ? "blue" : "gray"} hint="To bag" />
+          </Link>
+          <Link href="/merchant/orders?tab=ready">
+            <StatTile label="Ready" value={orders.READY_FOR_PICKUP} tone={orders.READY_FOR_PICKUP ? "green" : "gray"} hint="Awaiting pickup" />
+          </Link>
+        </div>
+      </section>
 
       <section>
         <SectionTitle

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Bell, ChevronDown, LayoutDashboard, LayoutGrid, MapPin, User } from "lucide-react";
+import { Bell, ChevronDown, LayoutDashboard, LayoutGrid, MapPin, ShoppingCart, User } from "lucide-react";
+import { cartCount } from "@/lib/cart";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { listCategories } from "@/lib/catalog";
@@ -12,7 +13,12 @@ const ROLE_LABEL = { CUSTOMER: null, SUPERMARKET: "Merchant", RIDER: "Rider", AD
 export async function SiteHeader() {
   const [user, categories] = await Promise.all([getCurrentUser(), listCategories()]);
   const active = user?.status === "ACTIVE" ? user : null;
-  const unread = active ? await db.notification.count({ where: { userId: active.id, readAt: null } }) : 0;
+  const [unread, inCart] = active
+    ? await Promise.all([
+        db.notification.count({ where: { userId: active.id, readAt: null } }),
+        active.role === "CUSTOMER" ? cartCount(active.id) : Promise.resolve(0),
+      ])
+    : [0, 0];
   const roleLabel = active ? ROLE_LABEL[active.role] : null;
 
   const bell = active && (
@@ -88,6 +94,21 @@ export async function SiteHeader() {
             </Link>
           )}
           {bell}
+          {(!active || active.role === "CUSTOMER") && (
+            <Link
+              href="/cart"
+              className="relative flex items-center gap-1.5 rounded-xl bg-brand-700/80 p-2 text-sm font-bold hover:bg-brand-700 lg:px-3"
+              aria-label={inCart ? `Cart, ${inCart} items` : "Cart"}
+            >
+              <ShoppingCart className="h-5 w-5" aria-hidden />
+              <span className="hidden lg:inline">Cart</span>
+              {inCart > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-brand-800 bg-accent-400 px-1 text-[10px] font-bold text-brand-950">
+                  {inCart > 99 ? "99+" : inCart}
+                </span>
+              )}
+            </Link>
+          )}
           {active ? (
             <Link href="/account" className="hidden items-center gap-1.5 rounded-xl bg-brand-700/80 px-3 py-2 text-sm font-bold hover:bg-brand-700 lg:flex">
               <User className="h-4 w-4" aria-hidden /> Account
