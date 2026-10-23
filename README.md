@@ -53,6 +53,28 @@ Admins can't sign up through the app; use `npm run admin:create`. Everyone else 
 | `npm run db:deploy` | Apply migrations in production |
 | `npm run admin:create` | Create an admin, or reset an existing admin's password |
 
+## Deploying to Vercel
+
+The repo is ready for Vercel: `vercel.json` runs `prisma migrate deploy` before `next build`, functions run in Frankfurt (`fra1`, the closest region to Nigeria), and images go to Vercel Blob when it's connected.
+
+1. **Import the project.** In Vercel, choose *Add New → Project* and import `clepbo/Sub-Net-Shopping`. Keep the detected Next.js settings, but don't deploy yet.
+2. **Add a database.** In the project's *Storage* tab, create a **Neon** Postgres database in **Frankfurt (eu-central-1)** and connect it to the project. This sets `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (used for migrations).
+3. **Add image storage.** In *Storage*, create a **Blob** store and connect it. This sets `BLOB_READ_WRITE_TOKEN`.
+4. **Set the session secret.** Under *Settings → Environment Variables*, add `SESSION_SECRET` for Production and Preview, with a long random value:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+   ```
+5. **Deploy.** The first build creates the database tables.
+6. **Create your admin** from your own computer, against the production database:
+   ```bash
+   npm i -g vercel && vercel link && vercel env pull .env.production.local
+   set -a && . ./.env.production.local && set +a
+   ADMIN_PASSWORD='a-long-password' npm run admin:create -- \
+     --email you@example.com --phone 08031234567 --first-name Ada --last-name Osagie
+   ```
+
+Preview deployments run migrations too. If you enable Neon's preview branching in the integration, each preview gets its own copy of the database; otherwise previews share production's database.
+
 ## How it's put together
 
 ```
@@ -61,7 +83,7 @@ src/proxy.ts                Redirects signed-out users and wrong roles away from
 src/lib/auth.ts             getCurrentUser / requireUser(role) — re-checks the user in the DB on every request
 src/lib/availability.ts     Open/closed, pickup and delivery status from hours, cut-offs, closures and pauses
 src/lib/validation.ts       zod schemas for every form
-src/lib/storage.ts          Image storage abstraction (local disk driver; add S3/R2 for production)
+src/lib/storage.ts          Image storage: Vercel Blob, or local disk for development
 src/lib/pos/                POS integration contract and inventory sync
 src/app/actions/            Server Actions — each one authorises the caller itself
 src/app/(pages)             /, /search, /stores/[id], /merchant, /rider, /admin, /account…
@@ -71,11 +93,10 @@ src/app/(pages)             /, /search, /stores/[id], /merchant, /rider, /admin,
 
 **Time.** All schedules are interpreted in Africa/Lagos (WAT, UTC+1) regardless of the server's time zone.
 
-**Images.** The local storage driver writes to `UPLOAD_DIR` (default `./uploads`) and files are served from `/uploads/…`. Uploads are limited to JPG, PNG and WebP up to 2 MB and checked by file signature. When running more than one server instance, add an object-storage driver in `src/lib/storage.ts`.
+**Images.** With `BLOB_READ_WRITE_TOKEN` set (on Vercel) images go to Vercel Blob. Otherwise the local driver writes to `UPLOAD_DIR` (default `./uploads`) and serves files from `/uploads/…`. Uploads are limited to JPG, PNG and WebP up to 2 MB and checked by file signature.
 
 ## Before going live
 
 - Set a strong `SESSION_SECRET` and serve over HTTPS (cookies are `Secure` in production).
 - Add rate limiting on sign-in and registration (for example at the reverse proxy).
-- Configure object storage for images if you run multiple instances.
 - Add email/phone verification and password reset — not part of Phase 1.

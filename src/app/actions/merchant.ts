@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireMerchantStore } from "@/lib/supermarkets";
 import { logActivity } from "@/lib/activity";
-import { deleteStoredFile, keyFromUrl, storeImage } from "@/lib/storage";
+import { deleteStoredFile, storeImage } from "@/lib/storage";
 import { lagosTimeToday } from "@/lib/time";
 import { formValues, type ActionState } from "@/lib/action-state";
 import { clockTime, fieldErrors, operatingSchedule, posIntegration, supermarketProfile } from "@/lib/validation";
@@ -154,9 +154,8 @@ export async function uploadLogo(_prev: ActionState, formData: FormData): Promis
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Upload failed" };
   }
-  const oldKey = keyFromUrl(store.logoUrl);
   await db.supermarket.update({ where: { id: store.id }, data: { logoUrl: stored.url } });
-  if (oldKey) await deleteStoredFile(oldKey);
+  if (store.logoUrl) await deleteStoredFile(store.logoUrl);
   await logActivity({ actorId: user.id, action: "supermarket.logo_updated", targetType: "supermarket", targetId: store.id });
   refresh();
   return { ok: "Logo updated" };
