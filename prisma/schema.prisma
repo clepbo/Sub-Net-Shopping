@@ -1,0 +1,329 @@
+// Sub Net Shopping — database schema.
+// Phase 1 (Core Foundation) per PRD §22/§24. Orders, payments, delivery
+// assignments, rider earnings and payouts arrive with later phases as new
+// migrations; everything here is shaped so they attach without rework.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Identity & access ────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  SUPERMARKET
+  RIDER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// Approval lifecycle shared by supermarkets and riders (PRD §7, §15).
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model User {
+  id             String        @id @default(cuid())
+  role           Role
+  firstName      String
+  lastName       String
+  email          String        @unique
+  /// E.164 form, e.g. +2348031234567
+  phone          String        @unique
+  passwordHash   String
+  status         AccountStatus @default(ACTIVE)
+  /// Bumped to invalidate every existing session for this user.
+  sessionVersion Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  customer      Customer?
+  rider         Rider?
+  staffRoles    SupermarketStaff[]
+  ownedMarkets  Supermarket[]      @relation("SupermarketOwner")
+  notifications Notification[]
+  activity      ActivityLog[]      @relation("ActivityActor")
+
+  @@index([role, status])
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAddress String?
+  createdAt      DateTime @default(now())
+}
+
+// ─── Supermarkets ─────────────────────────────────────────────────────
+
+model Supermarket {
+  id           String         @id @default(cuid())
+  ownerId      String
+  owner        User           @relation("SupermarketOwner", fields: [ownerId], references: [id])
+  status       ApprovalStatus @default(PENDING)
+  statusReason String?
+
+  name               String
+  contactName        String
+  phone              String
+  email              String
+  address            String
+  area               String?
+  latitude           Float?
+  longitude          Float?
+  /// CAC registration number or similar.
+  registrationNumber String?
+  description        String?
+  logoUrl            String?
+
+  // Store schedule lives in SupermarketHours; these are the extra cut-offs.
+  /// "HH:MM" — no new orders after this time.
+  lastOrderTime String?
+
+  pickupEnabled Boolean @default(true)
+  pickupStart   String? // "HH:MM"
+  pickupEnd     String?
+
+  deliveryEnabled       Boolean @default(false)
+  deliveryStart         String?
+  deliveryEnd           String?
+  lastDeliveryOrderTime String?
+
+  // Temporary operational overrides (PRD §6, §19).
+  temporarilyClosed   Boolean   @default(false)
+  closureNote         String?
+  deliveryPausedUntil DateTime?
+  pickupPausedUntil   DateTime?
+
+  // POS / inventory integration (PRD §9). One integration per store for now.
+  posProvider         String?
+  posHasApi           Boolean?
+  posIntegrationNotes String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  approvedAt DateTime?
+
+  hours     SupermarketHours[]
+  staff     SupermarketStaff[]
+  images    SupermarketImage[]
+  inventory Inventory[]
+  posSyncs  PosSyncRun[]
+
+  @@index([status])
+}
+
+model SupermarketHours {
+  id            String      @id @default(cuid())
+  supermarketId String
+  supermarket   Supermarket @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  /// 0 = Sunday … 6 = Saturday
+  dayOfWeek     Int
+  isOpen        Boolean     @default(true)
+  opensAt       String? // "HH:MM"
+  closesAt      String?
+
+  @@unique([supermarketId, dayOfWeek])
+}
+
+model SupermarketImage {
+  id            String      @id @default(cuid())
+  supermarketId String
+  supermarket   Supermarket @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  url           String
+  storageKey    String
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+}
+
+enum StaffRole {
+  MANAGER
+  STAFF
+}
+
+model SupermarketStaff {
+  id            String      @id @default(cuid())
+  supermarketId String
+  supermarket   Supermarket @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          StaffRole   @default(STAFF)
+  createdAt     DateTime    @default(now())
+
+  @@unique([supermarketId, userId])
+}
+
+// ─── Riders ───────────────────────────────────────────────────────────
+
+enum VehicleType {
+  MOTORCYCLE
+  CAR
+  VAN
+  BULKY
+}
+
+model Rider {
+  id             String         @id @default(cuid())
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         ApprovalStatus @default(PENDING)
+  statusReason   String?
+  vehicleType    VehicleType
+  plateNumber    String
+  vehicleMake    String?
+  vehicleColor   String?
+  driversLicense String?
+  isOnline       Boolean        @default(false)
+  lastOnlineAt   DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  approvedAt     DateTime?
+
+  @@index([status, isOnline])
+}
+
+// ─── Catalogue & inventory foundation (PRD §8, §9) ────────────────────
+// A Product is the platform-wide identity of an item (name, barcode,
+// images). Inventory is a supermarket's price and stock for that product,
+// so the same item can be compared across stores and its images survive
+// price/stock changes.
+
+model Category {
+  id       String     @id @default(cuid())
+  name     String     @unique
+  slug     String     @unique
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  barcode     String?   @unique
+  description String?
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  /// Bulky items need a suitable vehicle (PRD §14).
+  isBulky     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  images    ProductImage[]
+  inventory Inventory[]
+
+  @@index([name])
+}
+
+model ProductImage {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Owning store when a supermarket uploaded it; null for shared images.
+  supermarketId String?
+  url           String
+  storageKey    String
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+}
+
+enum InventorySource {
+  MANUAL
+  POS_SYNC
+}
+
+enum Availability {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  UNAVAILABLE
+}
+
+model Inventory {
+  id            String          @id @default(cuid())
+  supermarketId String
+  supermarket   Supermarket     @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// The store's own SKU / product code.
+  sku           String
+  /// Price in kobo to avoid floating-point money.
+  priceKobo     Int
+  stockQuantity Int?
+  availability  Availability    @default(IN_STOCK)
+  source        InventorySource @default(MANUAL)
+  externalRef   String?
+  lastSyncedAt  DateTime?
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([supermarketId, sku])
+  @@unique([supermarketId, productId])
+}
+
+enum PosSyncStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model PosSyncRun {
+  id            String        @id @default(cuid())
+  supermarketId String
+  supermarket   Supermarket   @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  provider      String
+  status        PosSyncStatus @default(RUNNING)
+  itemsSeen     Int           @default(0)
+  itemsUpdated  Int           @default(0)
+  error         String?
+  startedAt     DateTime      @default(now())
+  finishedAt    DateTime?
+}
+
+// ─── Platform ─────────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String?
+  targetId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Admin-configurable key/value settings, e.g. commission rates (PRD §17, §18).
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
