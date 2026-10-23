@@ -2,6 +2,9 @@ import "server-only";
 import { db } from "./db";
 import type { OrderStatus } from "@/generated/prisma/enums";
 
+/** Orders a supermarket can see: unpaid online orders stay hidden until paid. */
+export const STORE_VISIBLE = { not: "AWAITING_PAYMENT" } as const;
+
 /** Queue tabs for the merchant order screen. */
 export const ORDER_TABS: { key: string; label: string; statuses: OrderStatus[] }[] = [
   { key: "new", label: "New", statuses: ["PLACED"] },
@@ -12,7 +15,8 @@ export const ORDER_TABS: { key: string; label: string; statuses: OrderStatus[] }
 ];
 
 export async function orderCounts(supermarketId: string) {
-  const rows = await db.order.groupBy({ by: ["status"], where: { supermarketId }, _count: true });
-  const by = (s: OrderStatus) => rows.find((r) => r.status === s)?._count ?? 0;
-  return { PLACED: by("PLACED"), CONFIRMED: by("CONFIRMED"), READY_FOR_PICKUP: by("READY_FOR_PICKUP"), COLLECTED: by("COLLECTED"), CANCELLED: by("CANCELLED") };
+  const rows = await db.order.groupBy({ by: ["status"], where: { supermarketId, status: { not: "AWAITING_PAYMENT" } }, _count: true });
+  const counts = { AWAITING_PAYMENT: 0, PLACED: 0, CONFIRMED: 0, READY_FOR_PICKUP: 0, COLLECTED: 0, CANCELLED: 0 } satisfies Record<OrderStatus, number>;
+  for (const r of rows) counts[r.status] = r._count;
+  return counts;
 }

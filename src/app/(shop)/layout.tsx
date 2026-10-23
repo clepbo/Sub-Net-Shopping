@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { expireStalePaymentsThrottled } from "@/lib/payments/expiry";
 import { getCurrentUser } from "@/lib/auth";
 import { BottomNav } from "@/components/bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
@@ -5,6 +7,8 @@ import { SiteHeader } from "@/components/site-header";
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  // Releases stock held by unpaid online orders once their 30 minutes are up.
+  after(expireStalePaymentsThrottled);
   return (
     <div className="flex min-h-dvh flex-col bg-gray-50">
       <SiteHeader />

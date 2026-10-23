@@ -6,6 +6,7 @@ import { formatDateTime } from "@/lib/time";
 import { Badge, cx, type Tone } from "./ui";
 
 export const ORDER_TONE: Record<OrderStatus, Tone> = {
+  AWAITING_PAYMENT: "yellow",
   PLACED: "yellow",
   CONFIRMED: "blue",
   READY_FOR_PICKUP: "green",

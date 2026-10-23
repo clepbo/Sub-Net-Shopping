@@ -4,11 +4,21 @@ A mobile-first web app that connects shoppers in Benin City with **verified supe
 
 It works on phones and desktop browsers: phones get a compact header and a bottom tab bar; desktops get a full header with search and a category menu, and dashboards get a sidebar.
 
-This repository implements Phases 1–3 of the product requirements document (PRD §24–26): **core foundation**, **products & inventory**, and **cart & orders**.
+This repository implements Phases 1–4 of the product requirements document (PRD §24–27): **core foundation**, **products & inventory**, **cart & orders**, and **payments & pickup**. Delivery and riders (Phase 5) are next.
+
+## Phase 4 — Payments & pickup
+
+Customers choose **Pay now online** (Paystack: card, bank transfer, USSD) or **Pay at the store** at checkout.
+
+- **Online orders** are created as *awaiting payment*, with stock held, and only reach the supermarket once Paystack confirms payment. Confirmation comes from the browser redirect *and* a signed webhook, is always re-verified with Paystack's API, and is applied exactly once (the payment row is locked and stamped). Unpaid orders are cancelled after 30 minutes and their stock released. Before cancelling, each pending payment is checked with Paystack so a missed webhook isn't lost. A payment that lands after expiry restores the order if stock allows, otherwise it's refunded. Duplicate or wrong-amount payments are refunded automatically.
+- **Refunds** go out through Paystack when a paid order is cancelled (in full) or the store reduces items (the difference). Refunds that Paystack rejects appear on the admin Payments page with a Retry button.
+- **Pickup verification (PRD §13):** every order has a QR code and a 6-digit PIN. Scanning the QR with a phone camera opens the store's pickup screen; staff can also type the PIN. Collection can only be completed with a valid code for a ready, uncollected order at that store, and the code stops working once used. The pickup screen tells staff whether the order is already paid or how much to collect.
+- **Digital receipts** that print or save as PDF, stamped from the order's live status (paid, collected / code expired, cancelled / refunded).
+- **Commission & settlement (PRD §18):** each order records the supermarket commission rate at checkout. Admins create settlement statements per supermarket from collected orders: online sales minus commission, minus commission owed on pay-at-store sales (negative means the store owes Sub Net). Then they mark them paid with the bank transfer reference. Supermarkets see unsettled earnings and statements on their Earnings page.
 
 ## Phase 3 — Cart & orders
 
-Orders are **Reserve & Pick Up, paid at the store** for now: online payment arrives in Phase 4 and delivery in Phase 5. Each order records its payment method and fulfilment type, so those slot in later.
+Orders are **Reserve & Pick Up**, paid online or at the store; delivery arrives in Phase 5.
 
 | Role | Can do |
 | --- | --- |
@@ -74,6 +84,7 @@ Admins can't sign up through the app; use `npm run admin:create`. Everyone else 
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:deploy` | Apply migrations in production |
 | `npm run admin:create` | Create an admin, or reset an existing admin's password |
+| `npm run paystack:mock` | Local stand-in for Paystack's API and checkout page, for development without keys |
 
 ## Deploying to Vercel
 
@@ -95,6 +106,12 @@ The repo is ready for Vercel: `vercel.json` runs `prisma migrate deploy` before 
      --email you@example.com --phone 08031234567 --first-name Ada --last-name Osagie
    ```
 
+7. **Turn on online payment** (optional; without it checkout offers only pay-at-store):
+   - Add `PAYSTACK_SECRET_KEY` (from Paystack → Settings → API Keys & Webhooks; use the `sk_test_…` key first).
+   - Add `APP_URL` set to your site's address, e.g. `https://subnet.vercel.app`.
+   - In Paystack, set the **Webhook URL** to `https://<your domain>/api/webhooks/paystack`.
+   - Add `CRON_SECRET` (any long random value). A daily Vercel Cron job expires unpaid orders; page visits also do this, at most once a minute.
+
 Preview deployments run migrations too. If you enable Neon's preview branching in the integration, each preview gets its own copy of the database; otherwise previews share production's database.
 
 ## How it's put together
@@ -110,6 +127,9 @@ src/lib/csv-import.ts       CSV parsing and validation for product imports
 src/lib/cart.ts             Cart grouped by supermarket, with every line re-checked
 src/lib/order-rules.ts      Order status machine and totals
 src/lib/orders.ts           Checkout, stock reservation, status changes, item adjustments
+src/lib/payments/           Paystack client, payment application, refunds, expiry of unpaid orders
+src/lib/pickup.ts           QR/PIN pickup verification
+src/lib/settlements.ts      Commission and settlement statements
 src/lib/validation.ts       zod schemas for every form
 src/lib/storage.ts          Image storage: Vercel Blob, or local disk for development
 src/lib/pos/                POS integration contract and inventory sync
@@ -128,4 +148,5 @@ src/app/merchant|rider|admin Dashboards (sidebar on desktop)
 
 - Set a strong `SESSION_SECRET` and serve over HTTPS (cookies are `Secure` in production).
 - Add rate limiting on sign-in and registration (for example at the reverse proxy).
+- Test online payment end to end with Paystack **test** keys, including the webhook, before switching to live keys.
 - Add email/phone verification and password reset — not part of Phase 1.

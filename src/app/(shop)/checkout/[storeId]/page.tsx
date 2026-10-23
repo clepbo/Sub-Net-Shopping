@@ -6,6 +6,7 @@ import { ArrowLeft, Banknote, MapPin, ShoppingBag } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getCart } from "@/lib/cart";
 import { formatNaira } from "@/lib/money";
+import { paystackConfigured } from "@/lib/payments/paystack";
 import { CheckoutForm } from "@/components/forms/cart-forms";
 import { OrderTotals } from "@/components/order-ui";
 import { Card, Notice, Page, PageTitle, SectionTitle } from "@/components/ui";
@@ -48,13 +49,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
             </div>
           </Card>
           <Card>
-            <SectionTitle>Payment</SectionTitle>
+            <SectionTitle>Pickup code</SectionTitle>
             <div className="flex gap-3 text-sm">
               <Banknote className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden />
-              <div>
-                <p className="font-bold">Pay at the store</p>
-                <p className="text-gray-600">Pay the supermarket when you collect, by cash, card or transfer. Online payment is coming soon.</p>
-              </div>
+              <p className="text-gray-600">
+                You&apos;ll get a QR code and PIN on your order page. Staff check it before handing over, so nobody else can collect your order.
+              </p>
             </div>
           </Card>
         </div>
@@ -72,7 +72,13 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
             ))}
           </ul>
           <OrderTotals subtotalKobo={group.subtotalKobo} deliveryFeeKobo={0} totalKobo={group.subtotalKobo} />
-          <CheckoutForm supermarketId={s.id} checkoutKey={randomUUID()} disabled={Boolean(group.blocker)} />
+          <CheckoutForm
+            supermarketId={s.id}
+            checkoutKey={randomUUID()}
+            disabled={Boolean(group.blocker)}
+            onlineAvailable={paystackConfigured()}
+            totalLabel={formatNaira(group.subtotalKobo)}
+          />
           <p className="text-xs text-gray-500">Prices and stock are confirmed when you place the order.</p>
         </Card>
       </div>

@@ -38,3 +38,12 @@
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Receipts print without the site chrome. */
+@media print {
+  body > div > header,
+  body > div > div > footer,
+  nav[aria-label="Main"] {
+    display: none !important;
+  }
+}

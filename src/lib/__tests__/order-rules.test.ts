@@ -42,3 +42,14 @@ describe("newOrderNumber", () => {
     expect(newOrderNumber(() => 0.000042)).toBe("SN-00004200");
   });
 });
+
+describe("online payment transitions", () => {
+  it("only the system moves an order from awaiting payment to placed", () => {
+    expect(canTransition("SYSTEM", "AWAITING_PAYMENT", "PLACED")).toBe(true);
+    expect(canTransition("STORE", "AWAITING_PAYMENT", "CONFIRMED")).toBe(false);
+    expect(canTransition("CUSTOMER", "AWAITING_PAYMENT", "PLACED")).toBe(false);
+  });
+  it("customers can abandon an unpaid order", () => {
+    expect(canTransition("CUSTOMER", "AWAITING_PAYMENT", "CANCELLED")).toBe(true);
+  });
+});

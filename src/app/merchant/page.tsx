@@ -35,6 +35,17 @@ export default async function MerchantDashboard() {
         </div>
         <ApprovalBadge status={store.status} />
       </div>
+      <nav className="flex flex-wrap gap-2 lg:hidden" aria-label="More">
+        <Link href="/merchant/earnings" className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold">
+          Earnings
+        </Link>
+        <Link href="/merchant/profile" className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold">
+          Store profile
+        </Link>
+        <Link href="/merchant/hours" className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold">
+          Hours
+        </Link>
+      </nav>
 
       <ApprovalNotice status={store.status} reason={store.statusReason} kind="supermarket" />
 

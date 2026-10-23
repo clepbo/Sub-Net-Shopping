@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Phone } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireMerchantStore } from "@/lib/supermarkets";
+import { STORE_VISIBLE } from "@/lib/merchant-orders";
 import { formatNaira } from "@/lib/money";
 import { formatNigerianPhone } from "@/lib/phone";
 import { canAdjustItems } from "@/lib/order-rules";
@@ -17,7 +18,7 @@ export const metadata: Metadata = { title: "Order" };
 export default async function MerchantOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { store } = await requireMerchantStore();
   const order = await db.order.findFirst({
-    where: { id: (await params).id, supermarketId: store.id },
+    where: { id: (await params).id, supermarketId: store.id, status: STORE_VISIBLE },
     include: {
       items: true,
       customer: { select: { firstName: true, lastName: true, phone: true } },
@@ -71,7 +72,7 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
           {order.status !== "COLLECTED" && order.status !== "CANCELLED" && (
             <Card>
               <SectionTitle>Next step</SectionTitle>
-              <OrderActions orderId={order.id} status={order.status} totalLabel={formatNaira(order.totalKobo)} />
+              <OrderActions orderId={order.id} status={order.status} />
             </Card>
           )}
           <Card>
@@ -86,7 +87,17 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
                   </a>,
                 ],
                 ["Fulfilment", "Reserve & Pick Up"],
-                ["Payment", order.paymentStatus === "PAID" ? "Paid at store" : "To pay at store"],
+                [
+                  "Payment",
+                  order.paymentMethod === "ONLINE"
+                    ? order.paymentStatus === "REFUNDED"
+                      ? "Paid online · refunded"
+                      : "Paid online"
+                    : order.paymentStatus === "PAID"
+                      ? "Paid at store"
+                      : `Collect ${formatNaira(order.totalKobo)} at pickup`,
+                ],
+                ["Commission", `${formatNaira(order.commissionKobo)} (${order.commissionPercent}%)`],
               ]}
             />
           </Card>
