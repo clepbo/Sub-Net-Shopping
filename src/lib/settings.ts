@@ -5,6 +5,11 @@ import { db } from "./db";
 export const SETTING_DEFAULTS = {
   supermarketCommissionPercent: "10",
   riderCommissionPercent: "7",
+  /** Naira. */
+  deliveryBaseFee: "500",
+  /** Naira per km of road distance. */
+  deliveryPerKm: "150",
+  deliveryMaxKm: "20",
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
@@ -26,4 +31,14 @@ export async function saveSettings(values: Partial<Record<SettingKey, string>>, 
       }),
     ),
   );
+}
+
+/** Delivery pricing from settings, in kobo. */
+export async function deliveryRates() {
+  const s = await getSettings();
+  return {
+    baseKobo: Math.round(Number(s.deliveryBaseFee) * 100),
+    perKmKobo: Math.round(Number(s.deliveryPerKm) * 100),
+    maxKm: Number(s.deliveryMaxKm),
+  };
 }

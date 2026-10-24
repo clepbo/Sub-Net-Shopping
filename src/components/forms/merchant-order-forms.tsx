@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { adjustItem, updateOrderStatus } from "@/app/actions/merchant-orders";
-import type { OrderStatus } from "@/generated/prisma/enums";
+import type { Fulfilment, OrderStatus } from "@/generated/prisma/enums";
 import { FormMessage, SubmitButton } from "../form";
 import { buttonClass, cx } from "../ui";
 
@@ -16,14 +16,16 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string; hint: 
   },
 };
 
-export function OrderActions({ orderId, status }: { orderId: string; status: OrderStatus }) {
+export function OrderActions({ orderId, status, fulfilment = "PICKUP" }: { orderId: string; status: OrderStatus; fulfilment?: Fulfilment }) {
   const [state, action] = useActionState(updateOrderStatus, {});
   const [cancelling, setCancelling] = useState(false);
   const next = NEXT[status];
   if (!next && status !== "READY_FOR_PICKUP") return null;
   return (
     <div className="space-y-3">
-      {status === "READY_FOR_PICKUP" ? (
+      {status === "READY_FOR_PICKUP" && fulfilment === "DELIVERY" ? (
+        <p className="text-sm text-gray-600">Packed and waiting for the rider. Hand it over when they arrive; they confirm pickup in their app.</p>
+      ) : status === "READY_FOR_PICKUP" ? (
         <div className="space-y-2">
           <p className="text-sm text-gray-600">When the customer arrives, scan their QR code or check their PIN before handing over.</p>
           <Link href="/merchant/pickup" className={cx(buttonClass("primary"), "w-full sm:w-auto")}>

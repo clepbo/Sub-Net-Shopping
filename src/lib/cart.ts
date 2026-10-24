@@ -22,6 +22,7 @@ export type CartLine = {
   unitPriceKobo: number;
   quantity: number;
   lineTotalKobo: number;
+  isBulky: boolean;
   /** Stock left, when the store tracks it. */
   stockQuantity: number | null;
   /** Why this line can't be checked out as it is. */
@@ -29,12 +30,14 @@ export type CartLine = {
 };
 
 export type CartGroup = {
-  supermarket: { id: string; name: string; address: string; area: string | null; logoUrl: string | null };
+  supermarket: { id: string; name: string; address: string; area: string | null; logoUrl: string | null; latitude: number | null; longitude: number | null };
   availability: StoreAvailability;
   lines: CartLine[];
   subtotalKobo: number;
-  /** Why this store's items can't be checked out right now. */
+  /** Why this store's items can't be checked out right now (neither pickup nor delivery). */
   blocker: string | null;
+  pickupBlocker: string | null;
+  deliveryBlocker: string | null;
 };
 
 function lineIssue(inv: { availability: string; stockQuantity: number | null; supermarket: { status: string } }, quantity: number) {
@@ -42,6 +45,24 @@ function lineIssue(inv: { availability: string; stockQuantity: number | null; su
   if (inv.availability === "OUT_OF_STOCK") return "Out of stock";
   if (inv.stockQuantity !== null && quantity > inv.stockQuantity) return `Only ${inv.stockQuantity} left`;
   return null;
+}
+
+/** Why a store can't take a delivery order right now, or null if it can. */
+export function deliveryBlocker(a: StoreAvailability): string | null {
+  if (a.store !== "OPEN") return "This supermarket is closed right now.";
+  if (!a.acceptingOrders) return "This supermarket has stopped taking orders for today.";
+  switch (a.delivery.state) {
+    case "AVAILABLE":
+      return null;
+    case "PAUSED":
+      return "Delivery is temporarily unavailable at this supermarket.";
+    case "NOT_OFFERED":
+      return "This supermarket doesn't offer delivery.";
+    case "CUTOFF_PASSED":
+      return "This supermarket has stopped taking delivery orders for today.";
+    default:
+      return "Delivery isn't available at this time.";
+  }
 }
 
 /** Why a store can't take a pickup order right now, or null if it can. */
@@ -71,12 +92,17 @@ export async function getCart(userId: string, now = new Date()): Promise<CartGro
     let group = groups.get(s.id);
     if (!group) {
       const availability = computeAvailability(s, now);
+      const unavailable = s.status === "APPROVED" ? null : "This supermarket isn't available on Sub Net right now.";
+      const pickup = unavailable ?? pickupBlocker(availability);
+      const delivery = unavailable ?? deliveryBlocker(availability);
       group = {
-        supermarket: { id: s.id, name: s.name, address: s.address, area: s.area, logoUrl: s.logoUrl },
+        supermarket: { id: s.id, name: s.name, address: s.address, area: s.area, logoUrl: s.logoUrl, latitude: s.latitude, longitude: s.longitude },
         availability,
         lines: [],
         subtotalKobo: 0,
-        blocker: s.status === "APPROVED" ? pickupBlocker(availability) : "This supermarket isn't available on Sub Net right now.",
+        blocker: pickup && delivery ? pickup : null,
+        pickupBlocker: pickup,
+        deliveryBlocker: delivery,
       };
       groups.set(s.id, group);
     }
@@ -92,6 +118,7 @@ export async function getCart(userId: string, now = new Date()): Promise<CartGro
       unitPriceKobo: inv.priceKobo,
       quantity: item.quantity,
       lineTotalKobo,
+      isBulky: inv.product.isBulky,
       stockQuantity: inv.stockQuantity,
       issue,
     });

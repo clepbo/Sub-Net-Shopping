@@ -178,8 +178,8 @@ export default async function StorePage({ params, searchParams }: Props) {
             emptyTitle={q || category ? "No matching products" : "No products listed yet"}
             emptyHint={q || category ? "Try another search or category." : "This supermarket hasn't added products yet."}
           />
-          <Notice tone="green" title="Reserve &amp; Pick Up, pay at the store">
-            Add items to your cart and collect them here. You pay when you collect.
+          <Notice tone="green" title="Pick up or get it delivered">
+            Add items to your cart, then choose Reserve &amp; Pick Up or delivery at checkout.
           </Notice>
         </section>
       </div>

@@ -61,13 +61,13 @@ export default async function MerchantOrders({ searchParams }: { searchParams: P
                 <div className="min-w-0">
                   <p className="font-mono font-bold">{o.number}</p>
                   <p className="truncate text-sm text-gray-600">
-                    {o.customer.firstName} {o.customer.lastName} · {o._count.items} item{o._count.items === 1 ? "" : "s"}
+                    {o.fulfilment === "DELIVERY" ? "🛵 Delivery" : "Pickup"} · {o.customer.firstName} {o.customer.lastName} · {o._count.items} item{o._count.items === 1 ? "" : "s"}
                   </p>
                   <p className="text-xs text-gray-400">{formatDateTime(o.placedAt)}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className="font-extrabold tabular-nums">{formatNaira(o.totalKobo)}</span>
-                  <OrderStatusBadge status={o.status} />
+                  <OrderStatusBadge status={o.status} fulfilment={o.fulfilment} />
                 </div>
               </Link>
             </li>

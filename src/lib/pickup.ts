@@ -16,16 +16,18 @@ export async function findOrderForPickup(supermarketId: string, credential: { to
   if (pin && !/^\d{6}$/.test(pin)) return { ok: false, reason: "The PIN is 6 digits" };
 
   const order = token
-    ? await db.order.findUnique({ where: { pickupToken: token }, select: { id: true, supermarketId: true, status: true } })
+    ? await db.order.findUnique({ where: { pickupToken: token }, select: { id: true, supermarketId: true, status: true, fulfilment: true } })
     : await db.order.findFirst({
         where: { supermarketId, pickupPin: pin, status: { in: ["PLACED", "CONFIRMED", "READY_FOR_PICKUP"] } },
-        select: { id: true, supermarketId: true, status: true },
+        select: { id: true, supermarketId: true, status: true, fulfilment: true },
       });
   if (!order) return { ok: false, reason: "No order matches this code. Check the PIN, or that the order hasn't already been collected." };
   if (order.supermarketId !== supermarketId) return { ok: false, reason: "This order is for a different supermarket." };
   if (order.status === "COLLECTED") return { ok: false, reason: "This order has already been collected. The code has expired." };
   if (order.status === "CANCELLED") return { ok: false, reason: "This order was cancelled." };
   if (order.status === "AWAITING_PAYMENT") return { ok: false, reason: "This order hasn't been paid for." };
+  // The customer's PIN confirms a delivery at their door; it must never release a delivery order at the counter.
+  if (order.fulfilment === "DELIVERY") return { ok: false, reason: "This is a delivery order. Only the assigned rider collects it." };
   return { ok: true, orderId: order.id };
 }
 

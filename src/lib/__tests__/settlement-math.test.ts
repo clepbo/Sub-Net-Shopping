@@ -26,3 +26,10 @@ describe("computeSettlement", () => {
     expect(computeSettlement([]).payableKobo).toBe(0);
   });
 });
+
+describe("computeSettlement with delivery", () => {
+  it("leaves delivery fees out of the store's sales and payout", () => {
+    const s = computeSettlement([{ totalKobo: 1_150_000, deliveryFeeKobo: 150_000, commissionKobo: 100_000, paymentMethod: "ONLINE" }]);
+    expect(s).toMatchObject({ grossKobo: 1_000_000, onlineNetKobo: 900_000, payableKobo: 900_000 });
+  });
+});

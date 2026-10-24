@@ -50,6 +50,7 @@ export const NAV: Record<NavRole, NavItem[]> = {
   ],
   RIDER: [
     { href: "/rider", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { href: "/rider/earnings", label: "Earnings", icon: Banknote },
     { href: "/rider/vehicle", label: "Vehicle", icon: Bike },
     { href: "/account", label: "Account", icon: User },
   ],

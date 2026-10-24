@@ -174,6 +174,18 @@ export const posIntegration = z.object({
 export const platformSettings = z.object({
   supermarketCommissionPercent: z.coerce.number().min(0).max(50),
   riderCommissionPercent: z.coerce.number().min(0).max(50),
+  deliveryBaseFee: z.coerce.number().min(0).max(100_000),
+  deliveryPerKm: z.coerce.number().min(0).max(10_000),
+  deliveryMaxKm: z.coerce.number().min(1).max(100),
+});
+
+export const customerAddress = z.object({
+  label: z.string().trim().min(1, "Give this address a name, e.g. Home").max(40),
+  address: z.string().trim().min(5, "Enter the street address").max(200),
+  landmark: optionalText(120),
+  phone: nigerianPhone,
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
 });
 
 export type FieldErrors = Record<string, string>;

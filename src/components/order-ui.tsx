@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
-import type { OrderStatus } from "@/generated/prisma/enums";
+import type { Fulfilment, OrderStatus } from "@/generated/prisma/enums";
 import { formatNaira } from "@/lib/money";
-import { CUSTOMER_STEPS, ORDER_STATUS_LABEL } from "@/lib/order-rules";
+import { statusLabel, stepsFor } from "@/lib/order-rules";
 import { formatDateTime } from "@/lib/time";
 import { Badge, cx, type Tone } from "./ui";
 
@@ -10,30 +10,33 @@ export const ORDER_TONE: Record<OrderStatus, Tone> = {
   PLACED: "yellow",
   CONFIRMED: "blue",
   READY_FOR_PICKUP: "green",
+  OUT_FOR_DELIVERY: "blue",
+  DELIVERED: "gray",
   COLLECTED: "gray",
   CANCELLED: "red",
 };
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+export function OrderStatusBadge({ status, fulfilment = "PICKUP" }: { status: OrderStatus; fulfilment?: Fulfilment }) {
   return (
     <Badge tone={ORDER_TONE[status]} className="whitespace-nowrap">
-      {ORDER_STATUS_LABEL[status]}
+      {statusLabel(status, fulfilment)}
     </Badge>
   );
 }
 
-/** Horizontal progress through placed → collected. */
-export function OrderProgress({ status }: { status: OrderStatus }) {
+/** Horizontal progress through placed → collected (or delivered). */
+export function OrderProgress({ status, fulfilment = "PICKUP" }: { status: OrderStatus; fulfilment?: Fulfilment }) {
   if (status === "CANCELLED") return null;
-  const current = CUSTOMER_STEPS.indexOf(status);
+  const steps = stepsFor(fulfilment);
+  const current = steps.indexOf(status);
   return (
-    <ol className="grid grid-cols-4 gap-1 text-center text-[11px] font-semibold">
-      {CUSTOMER_STEPS.map((s, i) => (
+    <ol className={cx("grid gap-1 text-center text-[11px] font-semibold", steps.length === 5 ? "grid-cols-5" : "grid-cols-4")}>
+      {steps.map((s, i) => (
         <li key={s} className="space-y-1.5">
           <div className={cx("h-1.5 rounded-full", i <= current ? "bg-brand-600" : "bg-gray-200")} />
           <span className={cx("flex items-center justify-center gap-1", i <= current ? "text-brand-800" : "text-gray-400")}>
             {i < current && <Check className="h-3 w-3" aria-hidden />}
-            {ORDER_STATUS_LABEL[s]}
+            {statusLabel(s, fulfilment)}
           </span>
         </li>
       ))}
@@ -97,7 +100,7 @@ export function OrderTimeline({ events }: { events: { id: string; status: OrderS
       {events.map((e) => (
         <li key={e.id} className="relative">
           <span className="absolute top-1.5 -left-[21px] h-2.5 w-2.5 rounded-full bg-brand-600" aria-hidden />
-          <p className="font-semibold">{e.note ?? ORDER_STATUS_LABEL[e.status]}</p>
+          <p className="font-semibold">{e.note ?? statusLabel(e.status, "PICKUP")}</p>
           <p className="text-xs text-gray-500">{formatDateTime(e.createdAt)}</p>
         </li>
       ))}

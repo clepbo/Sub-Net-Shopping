@@ -21,8 +21,8 @@ export async function platformStats() {
     db.product.count(),
     db.inventory.count(),
     db.order.count({ where: { placedAt: { gte: startOfToday } } }),
-    db.order.count({ where: { status: { in: ["PLACED", "CONFIRMED", "READY_FOR_PICKUP"] } } }),
-    db.order.aggregate({ where: { status: "COLLECTED" }, _sum: { totalKobo: true }, _count: true }),
+    db.order.count({ where: { status: { in: ["PLACED", "CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] } } }),
+    db.order.aggregate({ where: { status: { in: ["COLLECTED", "DELIVERED"] } }, _sum: { totalKobo: true }, _count: true }),
   ]);
   const tally = (rows: { status: ApprovalStatus; _count: number }[]) => {
     const out = Object.fromEntries(APPROVAL_STATUSES.map((s) => [s, 0])) as Record<ApprovalStatus, number>;

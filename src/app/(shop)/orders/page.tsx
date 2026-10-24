@@ -39,7 +39,7 @@ export default async function OrdersPage() {
                       {o.number} · {formatDateTime(o.placedAt)}
                     </p>
                   </div>
-                  <OrderStatusBadge status={o.status} />
+                  <OrderStatusBadge status={o.status} fulfilment={o.fulfilment} />
                 </div>
                 <p className="mt-2 text-sm text-gray-600">
                   {o._count.items} item{o._count.items === 1 ? "" : "s"} · <span className="font-bold text-gray-900">{formatNaira(o.totalKobo)}</span>

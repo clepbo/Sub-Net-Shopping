@@ -18,9 +18,10 @@ export default async function AccountPage() {
       <Card>
         <DefinitionList items={[["Email", user.email]]} />
         {user.role === "CUSTOMER" && (
-          <Link href="/orders" className="mt-2 inline-block text-sm font-bold text-brand-700">
-            My orders →
-          </Link>
+          <div className="mt-2 flex gap-4 text-sm font-bold text-brand-700">
+            <Link href="/orders">My orders →</Link>
+            <Link href="/account/addresses">Delivery addresses →</Link>
+          </div>
         )}
       </Card>
       <Card>

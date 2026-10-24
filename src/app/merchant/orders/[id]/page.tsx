@@ -22,6 +22,7 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
     include: {
       items: true,
       customer: { select: { firstName: true, lastName: true, phone: true } },
+      delivery: { include: { rider: { include: { user: { select: { firstName: true, lastName: true, phone: true } } } } } },
       events: { orderBy: { createdAt: "asc" }, include: { actor: { select: { firstName: true, role: true } } } },
     },
   });
@@ -39,7 +40,7 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
           <h1 className="font-mono text-2xl font-black">{order.number}</h1>
           <p className="text-sm text-gray-500">Placed {formatDateTime(order.placedAt)}</p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        <OrderStatusBadge status={order.status} fulfilment={order.fulfilment} />
       </div>
 
       {order.status === "CANCELLED" && order.cancelReason && (
@@ -69,10 +70,10 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
           </Card>
         </div>
         <div className="space-y-5 lg:sticky lg:top-24">
-          {order.status !== "COLLECTED" && order.status !== "CANCELLED" && (
+          {!["COLLECTED", "DELIVERED", "CANCELLED", "OUT_FOR_DELIVERY"].includes(order.status) && (
             <Card>
               <SectionTitle>Next step</SectionTitle>
-              <OrderActions orderId={order.id} status={order.status} />
+              <OrderActions orderId={order.id} status={order.status} fulfilment={order.fulfilment} />
             </Card>
           )}
           <Card>
@@ -86,7 +87,18 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
                     <Phone className="h-3.5 w-3.5" aria-hidden /> {formatNigerianPhone(order.customer.phone)}
                   </a>,
                 ],
-                ["Fulfilment", "Reserve & Pick Up"],
+                ["Fulfilment", order.fulfilment === "DELIVERY" ? `Delivery · ${order.deliveryDistanceKm} km` : "Reserve & Pick Up"],
+                ...(order.fulfilment === "DELIVERY"
+                  ? ([
+                      ["Deliver to", `${order.deliveryAddress}${order.deliveryLandmark ? ` (${order.deliveryLandmark})` : ""}`],
+                      [
+                        "Rider",
+                        order.delivery && order.delivery.status !== "CANCELLED"
+                          ? `${order.delivery.rider.user.firstName} ${order.delivery.rider.user.lastName} · ${order.delivery.rider.plateNumber} · ${formatNigerianPhone(order.delivery.rider.user.phone)}`
+                          : "Not assigned yet",
+                      ],
+                    ] as [string, React.ReactNode][])
+                  : []),
                 [
                   "Payment",
                   order.paymentMethod === "ONLINE"

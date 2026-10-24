@@ -53,3 +53,18 @@ describe("online payment transitions", () => {
     expect(canTransition("CUSTOMER", "AWAITING_PAYMENT", "CANCELLED")).toBe(true);
   });
 });
+
+describe("delivery transitions", () => {
+  it("lets the rider take a ready delivery order out and deliver it", () => {
+    expect(canTransition("RIDER", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "DELIVERY")).toBe(true);
+    expect(canTransition("RIDER", "OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY")).toBe(true);
+    expect(canTransition("RIDER", "CONFIRMED", "OUT_FOR_DELIVERY", "DELIVERY")).toBe(false);
+  });
+  it("keeps pickup and delivery endings apart", () => {
+    expect(canTransition("STORE", "READY_FOR_PICKUP", "COLLECTED", "DELIVERY")).toBe(false);
+    expect(canTransition("RIDER", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "PICKUP")).toBe(false);
+  });
+  it("stops the store cancelling once the rider has the order", () => {
+    expect(canTransition("STORE", "OUT_FOR_DELIVERY", "CANCELLED", "DELIVERY")).toBe(false);
+  });
+});

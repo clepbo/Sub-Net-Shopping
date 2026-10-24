@@ -16,10 +16,12 @@ export async function checkout(_prev: ActionState, formData: FormData): Promise<
   if (!/^[0-9a-f-]{36}$/.test(checkoutKey)) return { error: "Please reload the page and try again." };
   const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
   const paymentMethod = formData.get("paymentMethod") === "ONLINE" ? "ONLINE" : "PAY_AT_STORE";
+  const fulfilment = formData.get("fulfilment") === "DELIVERY" ? "DELIVERY" : "PICKUP";
+  const addressId = String(formData.get("addressId") ?? "") || null;
 
   let orderId: string;
   try {
-    orderId = await placeOrder({ customerId: user.id, supermarketId, checkoutKey, note, paymentMethod });
+    orderId = await placeOrder({ customerId: user.id, supermarketId, checkoutKey, note, paymentMethod, fulfilment, addressId });
   } catch (err) {
     if (err instanceof OrderError) return { error: err.message };
     throw err;

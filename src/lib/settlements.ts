@@ -2,14 +2,15 @@ import "server-only";
 import { db } from "./db";
 import { notifyStoreStaff } from "./order-notify";
 import { computeSettlement } from "./settlement-math";
+import { COMPLETED_STATUSES } from "./order-rules";
 
-/** Collected orders not yet in a settlement count towards the next one. */
-const UNSETTLED = { status: "COLLECTED" as const, settlementId: null };
+/** Completed (collected or delivered) orders not yet in a settlement count towards the next one. */
+const UNSETTLED = { status: { in: COMPLETED_STATUSES }, settlementId: null };
 
 export async function unsettledSummary(supermarketId: string) {
   const orders = await db.order.findMany({
     where: { supermarketId, ...UNSETTLED },
-    select: { totalKobo: true, commissionKobo: true, paymentMethod: true },
+    select: { totalKobo: true, deliveryFeeKobo: true, commissionKobo: true, paymentMethod: true },
   });
   return computeSettlement(orders);
 }
@@ -19,7 +20,7 @@ export async function unsettledByStore() {
   const rows = await db.order.groupBy({
     by: ["supermarketId", "paymentMethod"],
     where: UNSETTLED,
-    _sum: { totalKobo: true, commissionKobo: true },
+    _sum: { totalKobo: true, deliveryFeeKobo: true, commissionKobo: true },
     _count: true,
   });
   const stores = await db.supermarket.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.supermarketId))] } }, select: { id: true, name: true } });
@@ -27,7 +28,12 @@ export async function unsettledByStore() {
     .map((s) => {
       // Each row sums one payment method, so it settles like a single order of that type.
       const mine = rows.filter((r) => r.supermarketId === s.id);
-      const sums = mine.map((r) => ({ totalKobo: r._sum.totalKobo ?? 0, commissionKobo: r._sum.commissionKobo ?? 0, paymentMethod: r.paymentMethod }));
+      const sums = mine.map((r) => ({
+        totalKobo: r._sum.totalKobo ?? 0,
+        deliveryFeeKobo: r._sum.deliveryFeeKobo ?? 0,
+        commissionKobo: r._sum.commissionKobo ?? 0,
+        paymentMethod: r.paymentMethod,
+      }));
       return { supermarket: s, ...computeSettlement(sums), orderCount: mine.reduce((n, r) => n + r._count, 0) };
     })
     .sort((a, b) => b.payableKobo - a.payableKobo);
@@ -37,16 +43,16 @@ export async function unsettledByStore() {
 export async function createSettlement(supermarketId: string, adminId: string) {
   return db.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "Order" WHERE "supermarketId" = ${supermarketId} AND "status" = 'COLLECTED' AND "settlementId" IS NULL FOR UPDATE`;
+      SELECT "id" FROM "Order" WHERE "supermarketId" = ${supermarketId} AND "status" IN ('COLLECTED', 'DELIVERED') AND "settlementId" IS NULL FOR UPDATE`;
     if (locked.length === 0) return null;
     const orders = await tx.order.findMany({
       where: { id: { in: locked.map((o) => o.id) } },
-      select: { id: true, totalKobo: true, commissionKobo: true, paymentMethod: true },
+      select: { id: true, totalKobo: true, deliveryFeeKobo: true, commissionKobo: true, paymentMethod: true },
     });
     const totals = computeSettlement(orders);
     const settlement = await tx.settlement.create({ data: { supermarketId, createdById: adminId, ...totals } });
     await tx.order.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data: { settlementId: settlement.id } });
-    await notifyStoreStaff(tx, supermarketId, "New settlement statement", `A statement for ${totals.orderCount} collected orders is ready on your Earnings page.`);
+    await notifyStoreStaff(tx, supermarketId, "New settlement statement", `A statement for ${totals.orderCount} completed orders is ready on your Earnings page.`);
     return settlement;
   });
 }

@@ -7,12 +7,14 @@ import { requireUser } from "@/lib/auth";
 import { directionsUrl } from "@/lib/geo";
 import { formatNaira } from "@/lib/money";
 import { formatNigerianPhone } from "@/lib/phone";
-import { canTransition, ORDER_STATUS_HELP } from "@/lib/order-rules";
+import { canTransition, statusHelp } from "@/lib/order-rules";
+import { VEHICLE_NAME } from "@/lib/delivery-rules";
 import { paymentDeadline } from "@/lib/payments";
 import { formatInstant } from "@/lib/time";
 import { CancelOrderButton, PayNowButton } from "@/components/forms/cart-forms";
 import { OrderItemsList, OrderProgress, OrderStatusBadge, OrderTimeline, OrderTotals } from "@/components/order-ui";
 import { PickupCode } from "@/components/pickup-code";
+import { DeliveryTracker } from "@/components/delivery-tracker";
 import { Card, LinkButton, Notice, Page, SectionTitle, buttonClass } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Order" };
@@ -35,13 +37,16 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       events: { orderBy: { createdAt: "asc" } },
       supermarket: true,
       payments: { where: { status: "SUCCEEDED" }, include: { refunds: true } },
+      delivery: { include: { rider: { include: { user: { select: { firstName: true, phone: true } } } } } },
     },
   });
   if (!order) notFound();
   const s = order.supermarket;
   const notice = PAYMENT_NOTICE[sp.payment as keyof typeof PAYMENT_NOTICE];
   const awaiting = order.status === "AWAITING_PAYMENT";
-  const showCode = ["PLACED", "CONFIRMED", "READY_FOR_PICKUP", "COLLECTED"].includes(order.status);
+  const isDelivery = order.fulfilment === "DELIVERY";
+  const showCode = !isDelivery && ["PLACED", "CONFIRMED", "READY_FOR_PICKUP", "COLLECTED"].includes(order.status);
+  const riderJob = order.delivery && order.delivery.status !== "CANCELLED" ? order.delivery : null;
   const refunds = order.payments.flatMap((p) => p.refunds).filter((r) => r.status !== "FAILED");
 
   return (
@@ -66,12 +71,12 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <p className="text-xs font-bold tracking-wider text-gray-500 uppercase">Order number</p>
             <p className="font-mono text-2xl font-black tracking-wide">{order.number}</p>
           </div>
-          <OrderStatusBadge status={order.status} />
+          <OrderStatusBadge status={order.status} fulfilment={order.fulfilment} />
         </div>
-        {!awaiting && <OrderProgress status={order.status} />}
+        {!awaiting && <OrderProgress status={order.status} fulfilment={order.fulfilment} />}
         <p className="text-sm text-gray-700">
           {order.status !== "CANCELLED"
-            ? ORDER_STATUS_HELP[order.status]
+            ? statusHelp(order.status, order.fulfilment)
             : order.cancelReason
               ? order.cancelReason.startsWith("Payment wasn't completed")
                 ? order.cancelReason
@@ -97,6 +102,48 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         </div>
       </Card>
 
+      {isDelivery && order.deliveryLat !== null && order.deliveryLng !== null && order.status !== "AWAITING_PAYMENT" && order.status !== "CANCELLED" && (
+        <Card className="space-y-4">
+          <SectionTitle>Delivery</SectionTitle>
+          {order.status !== "DELIVERED" && (
+            <div className="rounded-xl bg-brand-50 p-3 text-center">
+              <p className="text-xs font-bold tracking-wider text-brand-800 uppercase">Delivery PIN</p>
+              <p className="font-mono text-4xl font-black tracking-[0.3em] text-brand-950">{order.pickupPin}</p>
+              <p className="text-xs text-brand-800">Give this to your rider only when you have your order.</p>
+            </div>
+          )}
+          {riderJob ? (
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <div>
+                <p className="font-bold">{riderJob.rider.user.firstName} is your rider</p>
+                <p className="text-gray-600">
+                  {VEHICLE_NAME[riderJob.rider.vehicleType]} · {riderJob.rider.plateNumber}
+                </p>
+              </div>
+              {order.status !== "DELIVERED" && (
+                <a href={`tel:${riderJob.rider.user.phone}`} className={buttonClass("secondary", "sm")}>
+                  <Phone className="h-4 w-4" aria-hidden /> Call
+                </a>
+              )}
+            </div>
+          ) : (
+            order.status !== "DELIVERED" && <p className="text-sm text-gray-600">We&apos;ll assign a rider once the supermarket confirms your order.</p>
+          )}
+          {order.status !== "DELIVERED" && (
+            <DeliveryTracker
+              orderId={order.id}
+              initialStatus={order.status}
+              store={s.latitude !== null && s.longitude !== null ? { lat: s.latitude, lng: s.longitude } : null}
+              destination={{ lat: order.deliveryLat, lng: order.deliveryLng }}
+            />
+          )}
+          <p className="text-sm text-gray-600">
+            To: {order.deliveryAddress}
+            {order.deliveryLandmark && ` (${order.deliveryLandmark})`}
+          </p>
+        </Card>
+      )}
+
       {showCode && (
         <Card>
           <SectionTitle>Your pickup code</SectionTitle>
@@ -106,7 +153,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
       <div className="grid gap-5 md:grid-cols-2 md:items-start">
         <Card className="space-y-3">
-          <SectionTitle>Pick up at</SectionTitle>
+          <SectionTitle>{isDelivery ? "From" : "Pick up at"}</SectionTitle>
           <p className="font-bold">{s.name}</p>
           <p className="flex gap-1.5 text-sm text-gray-600">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -131,7 +178,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 ? "Paid at the store"
                 : "Pay at the store when you collect"}
           </p>
-          {s.latitude !== null && s.longitude !== null && (
+          {!isDelivery && s.latitude !== null && s.longitude !== null && (
             <a href={directionsUrl(s.latitude, s.longitude)} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm")}>
               <Navigation className="h-4 w-4" aria-hidden /> Directions
             </a>

@@ -4,7 +4,19 @@ A mobile-first web app that connects shoppers in Benin City with **verified supe
 
 It works on phones and desktop browsers: phones get a compact header and a bottom tab bar; desktops get a full header with search and a category menu, and dashboards get a sidebar.
 
-This repository implements Phases 1–4 of the product requirements document (PRD §24–27): **core foundation**, **products & inventory**, **cart & orders**, and **payments & pickup**. Delivery and riders (Phase 5) are next.
+This repository implements all five phases of the product requirements document (PRD §24–28): **core foundation**, **products & inventory**, **cart & orders**, **payments & pickup**, and **delivery & riders**.
+
+## Phase 5 — Delivery & riders
+
+- **Delivery addresses:** customers save addresses pinned on a map (tap the map or use the phone's GPS), with a landmark and a phone number for the rider.
+- **Delivery fee (PRD §14):** (base fee + per-km rate × road distance) × vehicle size, rounded up to ₦50. Road distance is the straight-line distance from the store to the pin × 1.3. Admins set the base fee, per-km rate and maximum distance. The fee is shown before payment and recalculated on the server at checkout.
+- **Vehicle matching:** any bulky product (marked by the supermarket, e.g. a TV or fridge) needs a van or truck; more than 25 items needs at least a car. Riders only see jobs their vehicle can carry.
+- **Delivery orders are paid online:** riders don't handle cash yet (PRD §17 treats cash as a later addition).
+- **Dispatch (PRD §16):** when the supermarket confirms a delivery order, online approved riders with a suitable vehicle are notified and see it on their dashboard with what they'd earn. The first to accept gets it; a rider can hand a job back before pickup. Riders take one delivery at a time.
+- **Pickup and drop-off:** the rider can only mark the order picked up once the store has marked it packed. At the door the customer gives their PIN, which completes the delivery. Delivery orders can't be released at the store's pickup counter with that PIN.
+- **Live tracking and navigation:** while online, the rider's phone shares GPS. Customers see the rider, store and drop-off on a live map (OpenStreetMap), with the rider's name, vehicle and a call button. Riders get one-tap Google Maps navigation to the store and the customer.
+- **Rider earnings and commission (PRD §17):** each job records the delivery fee, the rider commission rate and the rider's earning. Earnings become payable only once the delivery is completed and are voided if the order is cancelled. Admins bundle payable earnings into payouts and mark them paid with a transfer reference; riders see this on their Earnings page.
+- **Settlement:** delivery fees are excluded from supermarket sales and commission, so stores are settled on their product sales only.
 
 ## Phase 4 — Payments & pickup
 
@@ -18,7 +30,7 @@ Customers choose **Pay now online** (Paystack: card, bank transfer, USSD) or **P
 
 ## Phase 3 — Cart & orders
 
-Orders are **Reserve & Pick Up**, paid online or at the store; delivery arrives in Phase 5.
+Orders are **Reserve & Pick Up** (paid online or at the store) or **delivery** (paid online; see Phase 5).
 
 | Role | Can do |
 | --- | --- |
@@ -130,6 +142,9 @@ src/lib/orders.ts           Checkout, stock reservation, status changes, item ad
 src/lib/payments/           Paystack client, payment application, refunds, expiry of unpaid orders
 src/lib/pickup.ts           QR/PIN pickup verification
 src/lib/settlements.ts      Commission and settlement statements
+src/lib/delivery-rules.ts   Delivery fee, distance and vehicle matching
+src/lib/deliveries.ts       Rider jobs: accept, hand back, pick up, deliver, location
+src/lib/rider-payouts.ts    Rider earnings and payouts
 src/lib/validation.ts       zod schemas for every form
 src/lib/storage.ts          Image storage: Vercel Blob, or local disk for development
 src/lib/pos/                POS integration contract and inventory sync
@@ -149,4 +164,5 @@ src/app/merchant|rider|admin Dashboards (sidebar on desktop)
 - Set a strong `SESSION_SECRET` and serve over HTTPS (cookies are `Secure` in production).
 - Add rate limiting on sign-in and registration (for example at the reverse proxy).
 - Test online payment end to end with Paystack **test** keys, including the webhook, before switching to live keys.
+- Maps use OpenStreetMap's public tiles, which are fine for light use. For heavier traffic, switch the tile URL in `src/components/map/leaflet-map.tsx` to a hosted provider (e.g. MapTiler or Stadia Maps).
 - Add email/phone verification and password reset — not part of Phase 1.

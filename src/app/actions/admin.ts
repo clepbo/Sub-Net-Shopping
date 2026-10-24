@@ -113,16 +113,13 @@ export async function updatePlatformSettings(_prev: ActionState, formData: FormD
   const parsed = platformSettings.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
   await saveSettings(
-    {
-      supermarketCommissionPercent: String(parsed.data.supermarketCommissionPercent),
-      riderCommissionPercent: String(parsed.data.riderCommissionPercent),
-    },
+    Object.fromEntries(Object.entries(parsed.data).map(([k, v]) => [k, String(v)])),
     admin.id,
   );
   await logActivity({
     actorId: admin.id,
     action: "settings.updated",
-    details: `supermarket ${parsed.data.supermarketCommissionPercent}%, rider ${parsed.data.riderCommissionPercent}%`,
+    details: `supermarket ${parsed.data.supermarketCommissionPercent}%, rider ${parsed.data.riderCommissionPercent}%, delivery ₦${parsed.data.deliveryBaseFee} + ₦${parsed.data.deliveryPerKm}/km up to ${parsed.data.deliveryMaxKm} km`,
   });
   revalidatePath("/admin/settings");
   return { ok: "Settings saved", values };

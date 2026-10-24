@@ -64,7 +64,7 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
                   </td>
                   <td className="px-4 py-2 text-right font-bold tabular-nums">{formatNaira(o.totalKobo)}</td>
                   <td className="px-4 py-2">
-                    <OrderStatusBadge status={o.status} />
+                    <OrderStatusBadge status={o.status} fulfilment={o.fulfilment} />
                   </td>
                 </tr>
               ))}

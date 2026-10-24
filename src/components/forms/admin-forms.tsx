@@ -54,7 +54,11 @@ export function AccountStatusButton({ id, suspended }: { id: string; suspended: 
   );
 }
 
-export function SettingsForm({ values }: { values: { supermarketCommissionPercent: string; riderCommissionPercent: string } }) {
+export function SettingsForm({
+  values,
+}: {
+  values: { supermarketCommissionPercent: string; riderCommissionPercent: string; deliveryBaseFee: string; deliveryPerKm: string; deliveryMaxKm: string };
+}) {
   const [state, action] = useActionState(updatePlatformSettings, {});
   return (
     <form action={action} className="space-y-4" noValidate>
@@ -82,6 +86,13 @@ export function SettingsForm({ values }: { values: { supermarketCommissionPercen
         hint="Taken from delivery fees. PRD proposal: 5–7%."
         state={state}
       />
+      <h3 className="pt-2 text-xs font-bold tracking-wider text-gray-600 uppercase">Delivery pricing</h3>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Base fee (₦)" name="deliveryBaseFee" type="number" min={0} inputMode="decimal" defaultValue={values.deliveryBaseFee} state={state} />
+        <Field label="Per km (₦)" name="deliveryPerKm" type="number" min={0} inputMode="decimal" defaultValue={values.deliveryPerKm} state={state} />
+        <Field label="Max distance (km)" name="deliveryMaxKm" type="number" min={1} inputMode="decimal" defaultValue={values.deliveryMaxKm} state={state} />
+      </div>
+      <p className="text-xs text-gray-500">Fee = (base + per km × road distance) × vehicle size (motorcycle 1×, car 1.6×, van 2.5×, truck 4×), rounded up to ₦50.</p>
       <SubmitButton>Save settings</SubmitButton>
       <FormMessage state={state} />
     </form>

@@ -18,7 +18,7 @@ export default async function AdminSettings() {
     <Page>
       <PageTitle eyebrow="Admin" title="Platform settings" />
       <Card>
-        <SectionTitle>Commission</SectionTitle>
+        <SectionTitle>Commission &amp; delivery</SectionTitle>
         <SettingsForm values={settings} />
       </Card>
       <Card>
@@ -31,7 +31,7 @@ export default async function AdminSettings() {
             {formatNaira(500_000)} delivery fee → Sub Net {formatNaira(rider.commissionKobo)}, rider {formatNaira(rider.netKobo)}
           </li>
         </ul>
-        <p className="mt-2 text-xs text-gray-500">Applied automatically once payments go live.</p>
+        <p className="mt-2 text-xs text-gray-500">Rates are recorded on each order when it&apos;s placed.</p>
       </Card>
       <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-bold text-brand-700 lg:hidden">
         <Link href="/admin/categories">Categories →</Link>

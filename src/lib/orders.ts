@@ -5,7 +5,8 @@ import "server-only";
 import { randomBytes, randomInt } from "node:crypto";
 import { db } from "./db";
 import { computeAvailability } from "./availability";
-import { pickupBlocker } from "./cart";
+import { deliveryBlocker, pickupBlocker } from "./cart";
+import { canCarry, deliveryQuote, VEHICLE_NAME } from "./delivery-rules";
 import { VISIBLE_AVAILABILITY } from "./inventory";
 import {
   ACTIVE_STATUSES,
@@ -17,13 +18,13 @@ import {
   ORDER_STATUS_LABEL,
   type OrderActor,
 } from "./order-rules";
-import { getSettings } from "./settings";
+import { deliveryRates, getSettings } from "./settings";
 import { announceNewOrder, notifyStoreStaff } from "./order-notify";
 import { releaseStock, reserveStock, StockError } from "./stock";
 import { refundOrderBalance } from "./payments";
 import { paystackConfigured } from "./payments/paystack";
 import { Prisma } from "@/generated/prisma/client";
-import type { OrderStatus, PaymentMethod } from "@/generated/prisma/enums";
+import type { Fulfilment, OrderStatus, PaymentMethod, VehicleType } from "@/generated/prisma/enums";
 
 type Tx = Prisma.TransactionClient;
 
@@ -49,21 +50,31 @@ export async function placeOrder(opts: {
   checkoutKey: string;
   note: string | null;
   paymentMethod?: PaymentMethod;
+  fulfilment?: Fulfilment;
+  /** A saved CustomerAddress, required for delivery. */
+  addressId?: string | null;
   now?: Date;
 }) {
   const { customerId, supermarketId, checkoutKey } = opts;
   const paymentMethod = opts.paymentMethod ?? "PAY_AT_STORE";
+  const fulfilment = opts.fulfilment ?? "PICKUP";
   const existing = await db.order.findUnique({ where: { checkoutKey }, select: { id: true, customerId: true } });
   if (existing) {
     if (existing.customerId !== customerId) throw new OrderError("This checkout has expired. Please try again.");
     return existing.id;
   }
   if (paymentMethod === "ONLINE" && !paystackConfigured()) throw new OrderError("Online payment isn't available right now. Choose pay at the store.");
+  // Riders don't handle cash yet (PRD §17), so deliveries are paid online.
+  if (fulfilment === "DELIVERY" && paymentMethod !== "ONLINE") throw new OrderError("Delivery orders are paid online.");
 
   const store = await db.supermarket.findUnique({ where: { id: supermarketId }, include: { hours: true } });
   if (!store || store.status !== "APPROVED") throw new OrderError("This supermarket isn't available on Sub Net right now.");
-  const blocker = pickupBlocker(computeAvailability(store, opts.now ?? new Date()));
+  const availability = computeAvailability(store, opts.now ?? new Date());
+  const blocker = fulfilment === "DELIVERY" ? deliveryBlocker(availability) : pickupBlocker(availability);
   if (blocker) throw new OrderError(blocker);
+  const address =
+    fulfilment === "DELIVERY" && opts.addressId ? await db.customerAddress.findFirst({ where: { id: opts.addressId, userId: customerId } }) : null;
+  if (fulfilment === "DELIVERY" && !address) throw new OrderError("Choose a delivery address.");
 
   const lines = await db.cartItem.findMany({
     where: { userId: customerId, inventory: { supermarketId } },
@@ -88,7 +99,36 @@ export async function placeOrder(opts: {
     quantity: l.quantity,
     lineTotalKobo: l.inventory.priceKobo * l.quantity,
   }));
-  const totals = orderTotals(items);
+  let delivery: {
+    deliveryAddress: string;
+    deliveryLandmark: string | null;
+    deliveryPhone: string;
+    deliveryLat: number;
+    deliveryLng: number;
+    deliveryDistanceKm: number;
+    requiredVehicle: VehicleType;
+  } | null = null;
+  let deliveryFeeKobo = 0;
+  if (address) {
+    const quote = deliveryQuote({
+      from: store.latitude !== null && store.longitude !== null ? { lat: store.latitude, lng: store.longitude } : null,
+      to: { lat: address.latitude, lng: address.longitude },
+      items: lines.map((l) => ({ isBulky: l.inventory.product.isBulky, quantity: l.quantity })),
+      rates: await deliveryRates(),
+    });
+    if (!quote.ok) throw new OrderError(quote.reason);
+    deliveryFeeKobo = quote.feeKobo;
+    delivery = {
+      deliveryAddress: address.address,
+      deliveryLandmark: address.landmark,
+      deliveryPhone: address.phone,
+      deliveryLat: address.latitude,
+      deliveryLng: address.longitude,
+      deliveryDistanceKm: quote.distanceKm,
+      requiredVehicle: quote.vehicle,
+    };
+  }
+  const totals = orderTotals(items, deliveryFeeKobo);
   const commissionPercent = Number((await getSettings()).supermarketCommissionPercent) || 0;
 
   let number = newOrderNumber();
@@ -108,6 +148,8 @@ export async function placeOrder(opts: {
           customerNote: opts.note,
           status,
           paymentMethod,
+          fulfilment,
+          ...delivery,
           ...totals,
           commissionPercent,
           commissionKobo: commissionOn(totals.subtotalKobo, commissionPercent),
@@ -136,9 +178,11 @@ export async function placeOrder(opts: {
   }
 }
 
-const TIMESTAMP: Partial<Record<OrderStatus, "confirmedAt" | "readyAt" | "collectedAt" | "cancelledAt">> = {
+const TIMESTAMP: Partial<Record<OrderStatus, "confirmedAt" | "readyAt" | "collectedAt" | "cancelledAt" | "outForDeliveryAt" | "deliveredAt">> = {
   CONFIRMED: "confirmedAt",
   READY_FOR_PICKUP: "readyAt",
+  OUT_FOR_DELIVERY: "outForDeliveryAt",
+  DELIVERED: "deliveredAt",
   COLLECTED: "collectedAt",
   CANCELLED: "cancelledAt",
 };
@@ -147,6 +191,13 @@ const CUSTOMER_MESSAGE: Partial<Record<OrderStatus, string>> = {
   CONFIRMED: "The supermarket has confirmed your order and is preparing it.",
   READY_FOR_PICKUP: "Your order is ready. Show your pickup QR code or PIN at the pickup point.",
   COLLECTED: "Thanks for shopping with Sub Net! Your receipt is on the order page.",
+  OUT_FOR_DELIVERY: "Your rider has picked up your order and is on the way. Track them on the order page and give them your PIN when they arrive.",
+  DELIVERED: "Your order has been delivered. Thanks for shopping with Sub Net!",
+};
+
+const DELIVERY_CUSTOMER_MESSAGE: Partial<Record<OrderStatus, string>> = {
+  CONFIRMED: "The supermarket has confirmed your order. We're finding a rider.",
+  READY_FOR_PICKUP: "Your order is packed and waiting for the rider.",
 };
 
 /**
@@ -162,7 +213,7 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
     // Row lock so concurrent changes run one after the other.
     await tx.$queryRaw`SELECT 1 FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true, supermarket: { select: { name: true } } } });
-    if (!canTransition(actor, order.status, to)) {
+    if (!canTransition(actor, order.status, to, order.fulfilment)) {
       throw new OrderError(`This order is already ${ORDER_STATUS_LABEL[order.status].toLowerCase()}`);
     }
     if (to === "CANCELLED") {
@@ -191,11 +242,36 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
           ? paidNow
             ? "Pickup code verified · paid at the store · collected"
             : "Pickup code verified · collected"
-          : null;
+          : to === "OUT_FOR_DELIVERY"
+            ? "Rider picked up the order"
+            : to === "DELIVERED"
+              ? "Delivered · customer PIN verified"
+              : to === "READY_FOR_PICKUP" && order.fulfilment === "DELIVERY"
+                ? "Packed and waiting for the rider"
+                : null;
     await tx.orderEvent.create({ data: { orderId, status: to, actorId, note } });
 
-    if (actor === "STORE") {
-      const body = to === "CANCELLED" ? `${order.supermarket.name} cancelled your order. Reason: ${opts.reason}` : CUSTOMER_MESSAGE[to];
+    if (to === "CANCELLED") {
+      // A rider who had accepted the delivery loses the job, and its earning.
+      const assignment = await tx.deliveryAssignment.findUnique({ where: { orderId }, include: { rider: true } });
+      if (assignment && assignment.status !== "CANCELLED") {
+        await tx.deliveryAssignment.update({ where: { id: assignment.id }, data: { status: "CANCELLED", earningStatus: "VOID", cancelledAt: new Date() } });
+        await tx.notification.create({ data: { userId: assignment.rider.userId, title: `Delivery ${order.number} cancelled`, body: "The order was cancelled, so you don't need to collect it." } });
+      }
+    }
+    if (to === "CONFIRMED" && order.fulfilment === "DELIVERY") await notifyRidersOfJob(tx, order);
+    // Keep the rider's job in step with the order, in the same transaction.
+    if (to === "OUT_FOR_DELIVERY") {
+      await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "PICKED_UP", pickedUpAt: new Date() } });
+    }
+    if (to === "DELIVERED") {
+      // Earnings become payable only once the delivery is completed (PRD §16).
+      await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "DELIVERED", deliveredAt: new Date(), earningStatus: "ELIGIBLE" } });
+    }
+
+    if (actor === "STORE" || actor === "RIDER") {
+      const message = (order.fulfilment === "DELIVERY" && DELIVERY_CUSTOMER_MESSAGE[to]) || CUSTOMER_MESSAGE[to];
+      const body = to === "CANCELLED" ? `${order.supermarket.name} cancelled your order. Reason: ${opts.reason}` : message;
       if (body) await tx.notification.create({ data: { userId: order.customerId, title: `Order ${order.number}: ${ORDER_STATUS_LABEL[to].toLowerCase()}`, body } });
     } else if (actor === "CUSTOMER" && order.status !== "AWAITING_PAYMENT") {
       await notifyStoreStaff(tx, order.supermarketId, `Order ${order.number} cancelled`, "The customer cancelled this order.");
@@ -209,6 +285,25 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
     await refundOrderBalance(orderId, `Order ${order.number} cancelled`);
   }
   return order;
+}
+
+/** Tells online, approved riders whose vehicle is big enough about a new delivery job. */
+async function notifyRidersOfJob(tx: Tx, order: { number: string; requiredVehicle: VehicleType | null }) {
+  const required = order.requiredVehicle ?? "MOTORCYCLE";
+  const riders = await tx.rider.findMany({
+    where: { status: "APPROVED", isOnline: true, user: { status: "ACTIVE" } },
+    select: { userId: true, vehicleType: true },
+  });
+  const eligible = riders.filter((r) => canCarry(r.vehicleType, required));
+  if (eligible.length) {
+    await tx.notification.createMany({
+      data: eligible.map((r) => ({
+        userId: r.userId,
+        title: `New delivery ${order.number}`,
+        body: `${VEHICLE_NAME[required]} or larger. Open your dashboard to accept it.`,
+      })),
+    });
+  }
 }
 
 /**

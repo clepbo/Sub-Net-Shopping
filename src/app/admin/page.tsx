@@ -47,7 +47,7 @@ export default async function AdminOverview() {
         <div className="grid grid-cols-3 gap-2">
           <StatTile label="Today" value={stats.ordersToday} tone="blue" />
           <StatTile label="In progress" value={stats.openOrders} tone={stats.openOrders ? "yellow" : "gray"} />
-          <StatTile label="Collected" value={formatNaira(stats.collectedValueKobo)} tone="green" hint={`${stats.collectedOrders} orders`} />
+          <StatTile label="Completed" value={formatNaira(stats.collectedValueKobo)} tone="green" hint={`${stats.collectedOrders} orders`} />
         </div>
       </section>
 

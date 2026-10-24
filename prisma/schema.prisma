@@ -56,6 +56,7 @@ model User {
   notifications Notification[]
   activity      ActivityLog[]      @relation("ActivityActor")
   cartItems     CartItem[]
+  addresses     CustomerAddress[]
   orders        Order[]            @relation("CustomerOrders")
   orderEvents   OrderEvent[]
 
@@ -198,6 +199,13 @@ model Rider {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   approvedAt     DateTime?
+  /// Latest GPS fix, shared while on a delivery (PRD §28 live tracking).
+  lastLat        Float?
+  lastLng        Float?
+  lastLocationAt DateTime?
+
+  assignments DeliveryAssignment[]
+  payouts     RiderPayout[]
 
   @@index([status, isOnline])
 }
@@ -341,7 +349,10 @@ enum OrderStatus {
   AWAITING_PAYMENT
   PLACED
   CONFIRMED
+  /// Pickup: waiting for the customer. Delivery: waiting for the rider.
   READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
   COLLECTED
   CANCELLED
 }
@@ -364,44 +375,55 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                String        @id @default(cuid())
+  id                 String        @id @default(cuid())
   /// Human-friendly reference shown to customers and staff, e.g. SN-4821937.
-  number            String        @unique
-  customerId        String
-  customer          User          @relation("CustomerOrders", fields: [customerId], references: [id])
-  supermarketId     String
-  supermarket       Supermarket   @relation(fields: [supermarketId], references: [id])
-  status            OrderStatus   @default(PLACED)
-  fulfilment        Fulfilment    @default(PICKUP)
-  paymentMethod     PaymentMethod @default(PAY_AT_STORE)
-  paymentStatus     PaymentStatus @default(UNPAID)
-  subtotalKobo      Int
-  deliveryFeeKobo   Int           @default(0)
-  totalKobo         Int
-  customerNote      String?
+  number             String        @unique
+  customerId         String
+  customer           User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  supermarketId      String
+  supermarket        Supermarket   @relation(fields: [supermarketId], references: [id])
+  status             OrderStatus   @default(PLACED)
+  fulfilment         Fulfilment    @default(PICKUP)
+  paymentMethod      PaymentMethod @default(PAY_AT_STORE)
+  paymentStatus      PaymentStatus @default(UNPAID)
+  subtotalKobo       Int
+  deliveryFeeKobo    Int           @default(0)
+  totalKobo          Int
+  customerNote       String?
   /// Client-generated key so a double-submitted checkout creates one order.
-  checkoutKey       String        @unique
+  checkoutKey        String        @unique
   /// 6-digit code the customer gives at the pickup point (unique among the store's open orders).
-  pickupPin         String
+  pickupPin          String
   /// Secret in the pickup QR code; only valid until the order is collected.
-  pickupToken       String        @unique
+  pickupToken        String        @unique
   /// Store commission rate when the order was placed, and the resulting amount (PRD §18).
-  commissionPercent Float         @default(0)
-  commissionKobo    Int           @default(0)
-  settlementId      String?
-  settlement        Settlement?   @relation(fields: [settlementId], references: [id])
-  paidAt            DateTime?
-  cancelReason      String?
-  placedAt          DateTime      @default(now())
-  confirmedAt       DateTime?
-  readyAt           DateTime?
-  collectedAt       DateTime?
-  cancelledAt       DateTime?
-  updatedAt         DateTime      @updatedAt
+  commissionPercent  Float         @default(0)
+  commissionKobo     Int           @default(0)
+  settlementId       String?
+  settlement         Settlement?   @relation(fields: [settlementId], references: [id])
+  paidAt             DateTime?
+  /// Delivery details, copied at checkout (null for pickup orders).
+  deliveryAddress    String?
+  deliveryLandmark   String?
+  deliveryPhone      String?
+  deliveryLat        Float?
+  deliveryLng        Float?
+  deliveryDistanceKm Float?
+  requiredVehicle    VehicleType?
+  outForDeliveryAt   DateTime?
+  deliveredAt        DateTime?
+  cancelReason       String?
+  placedAt           DateTime      @default(now())
+  confirmedAt        DateTime?
+  readyAt            DateTime?
+  collectedAt        DateTime?
+  cancelledAt        DateTime?
+  updatedAt          DateTime      @updatedAt
 
   items    OrderItem[]
   events   OrderEvent[]
   payments Payment[]
+  delivery DeliveryAssignment?
 
   @@index([customerId, placedAt])
   @@index([supermarketId, status, placedAt])
@@ -528,6 +550,87 @@ model Settlement {
   orders Order[]
 
   @@index([supermarketId, createdAt])
+}
+
+// ─── Delivery & riders (PRD §14–17, Phase 5) ──────────────────────────
+
+/// A customer's saved delivery location, pinned on the map.
+model CustomerAddress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  address   String
+  landmark  String?
+  phone     String
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  PICKED_UP
+  DELIVERED
+  CANCELLED
+}
+
+enum EarningStatus {
+  /// Rider accepted; not payable until delivery is completed (PRD §16).
+  PENDING
+  ELIGIBLE
+  PAID
+  VOID
+}
+
+/// A rider's job delivering one order, with what they earn from it.
+model DeliveryAssignment {
+  id                     String           @id @default(cuid())
+  orderId                String           @unique
+  order                  Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  riderId                String
+  rider                  Rider            @relation(fields: [riderId], references: [id])
+  status                 AssignmentStatus @default(ASSIGNED)
+  deliveryFeeKobo        Int
+  riderCommissionPercent Float
+  riderCommissionKobo    Int
+  riderEarningKobo       Int
+  earningStatus          EarningStatus    @default(PENDING)
+  payoutId               String?
+  payout                 RiderPayout?     @relation(fields: [payoutId], references: [id])
+  assignedAt             DateTime         @default(now())
+  pickedUpAt             DateTime?
+  deliveredAt            DateTime?
+  cancelledAt            DateTime?
+
+  @@index([riderId, status])
+  @@index([earningStatus])
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
+model RiderPayout {
+  id                String       @id @default(cuid())
+  riderId           String
+  rider             Rider        @relation(fields: [riderId], references: [id])
+  deliveryCount     Int
+  feesKobo          Int
+  commissionKobo    Int
+  amountKobo        Int
+  status            PayoutStatus @default(PENDING)
+  transferReference String?
+  paidAt            DateTime?
+  createdById       String?
+  createdAt         DateTime     @default(now())
+
+  assignments DeliveryAssignment[]
+
+  @@index([riderId, createdAt])
 }
 
 // ─── Platform ─────────────────────────────────────────────────────────
