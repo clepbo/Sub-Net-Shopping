@@ -6,6 +6,13 @@ It works on phones and desktop browsers: phones get a compact header and a botto
 
 This repository implements all five phases of the product requirements document (PRD §24–28): **core foundation**, **products & inventory**, **cart & orders**, **payments & pickup**, and **delivery & riders**.
 
+## Pickup times & reminders
+
+- Customers choose a **pickup time** at checkout: 30-minute slots today and the next two days, inside the store's pickup window (or opening hours) and at least the store's **preparation time** ahead (set on the Hours page; default 30 minutes). After today's last order time, slots start tomorrow; a pickup pause moves the earliest slot past the pause. The server re-checks the chosen time, so it can't be outside the store's rules.
+- Supermarkets see each order's pickup time; work queues are sorted by it.
+- About **an hour before** the chosen time, customers get a reminder in the app and, if they've allowed it, as a **phone notification** (web push). Customers, staff and riders also get phone notifications for key events (order ready, rider on the way, new order, new delivery job).
+- Web push works on Android and desktop browsers, and on iPhone (iOS 16.4+) once the site is added to the home screen.
+
 ## Phase 5 — Delivery & riders
 
 - **Delivery addresses:** customers save addresses pinned on a map (tap the map or use the phone's GPS), with a landmark and a phone number for the rider.
@@ -96,6 +103,7 @@ Admins can't sign up through the app; use `npm run admin:create`. Everyone else 
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:deploy` | Apply migrations in production |
 | `npm run admin:create` | Create an admin, or reset an existing admin's password |
+| `npm run push:keys` | Generate the VAPID keys for phone notifications |
 | `npm run paystack:mock` | Local stand-in for Paystack's API and checkout page, for development without keys |
 
 ## Deploying to Vercel
@@ -118,13 +126,22 @@ The repo is ready for Vercel: `vercel.json` runs `prisma migrate deploy` before 
      --email you@example.com --phone 08031234567 --first-name Ada --last-name Osagie
    ```
 
-7. **Turn on online payment** (optional; without it checkout offers only pay-at-store):
+7. **Turn on phone notifications** (optional): run `npm run push:keys` and add the two values it prints, `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, plus `VAPID_SUBJECT` (e.g. `mailto:you@yourdomain.com`).
+8. **Send reminders on time:** Vercel's free plan runs scheduled jobs only once a day, so also have a free scheduler such as [cron-job.org](https://cron-job.org) call `https://<your domain>/api/cron/tick` every 5 minutes with the header `Authorization: Bearer <CRON_SECRET>`. (Page visits also run these jobs, at most once a minute.)
+9. **Turn on online payment** (optional; without it checkout offers only pay-at-store):
    - Add `PAYSTACK_SECRET_KEY` (from Paystack → Settings → API Keys & Webhooks; use the `sk_test_…` key first).
    - Add `APP_URL` set to your site's address, e.g. `https://subnet.vercel.app`.
    - In Paystack, set the **Webhook URL** to `https://<your domain>/api/webhooks/paystack`.
-   - Add `CRON_SECRET` (any long random value). A daily Vercel Cron job expires unpaid orders; page visits also do this, at most once a minute.
+   - Add `CRON_SECRET` (any long random value). It protects `/api/cron/tick`, which expires unpaid orders and sends pickup reminders.
 
 Preview deployments run migrations too. If you enable Neon's preview branching in the integration, each preview gets its own copy of the database; otherwise previews share production's database.
+
+### If the site feels slow
+
+Each page and button talks to the database several times, so the distance between the app and the database matters most:
+
+- **Same region:** the app runs in Frankfurt (`fra1`). Your Neon database must be in **Frankfurt (eu-central-1)** too; a database in the US adds roughly 0.1 s to every query, which adds up to seconds per page. Neon's region is shown on the project's dashboard and can't be changed: create a new project in Frankfurt and move the data if needed.
+- **Idle database:** on Neon's free plan the database sleeps after about 5 minutes without traffic, and the first request afterwards takes 1–3 seconds while it wakes. Paid plans can turn this off. The app tolerates the wake-up (transactions wait up to 20 s) instead of failing.
 
 ## How it's put together
 
@@ -142,6 +159,8 @@ src/lib/orders.ts           Checkout, stock reservation, status changes, item ad
 src/lib/payments/           Paystack client, payment application, refunds, expiry of unpaid orders
 src/lib/pickup.ts           QR/PIN pickup verification
 src/lib/settlements.ts      Commission and settlement statements
+src/lib/pickup-slots.ts     Pickup times customers can choose
+src/lib/reminders.ts        Pickup reminders; src/lib/push.ts sends web push
 src/lib/delivery-rules.ts   Delivery fee, distance and vehicle matching
 src/lib/deliveries.ts       Rider jobs: accept, hand back, pick up, deliver, location
 src/lib/rider-payouts.ts    Rider earnings and payouts

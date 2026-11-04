@@ -6,6 +6,7 @@ import { requireMerchantStore } from "@/lib/supermarkets";
 import { orderCounts, ORDER_TABS } from "@/lib/merchant-orders";
 import { formatNaira } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
+import { describePickupTime } from "@/lib/pickup-slots";
 import { OrderStatusBadge } from "@/components/order-ui";
 import { EmptyState, Page, PageTitle, cx } from "@/components/ui";
 
@@ -18,8 +19,11 @@ export default async function MerchantOrders({ searchParams }: { searchParams: P
   const [orders, counts] = await Promise.all([
     db.order.findMany({
       where: { supermarketId: store.id, status: { in: tab.statuses } },
-      // Oldest first while there's work to do; newest first in history.
-      orderBy: { placedAt: tab.key === "done" || tab.key === "cancelled" ? "desc" : "asc" },
+      // Work queues: soonest pickup time first; history: newest first.
+      orderBy:
+        tab.key === "done" || tab.key === "cancelled"
+          ? [{ placedAt: "desc" }]
+          : [{ pickupAt: { sort: "asc", nulls: "last" } }, { placedAt: "asc" }],
       take: 100,
       include: { customer: { select: { firstName: true, lastName: true } }, _count: { select: { items: true } } },
     }),
@@ -63,7 +67,11 @@ export default async function MerchantOrders({ searchParams }: { searchParams: P
                   <p className="truncate text-sm text-gray-600">
                     {o.fulfilment === "DELIVERY" ? "🛵 Delivery" : "Pickup"} · {o.customer.firstName} {o.customer.lastName} · {o._count.items} item{o._count.items === 1 ? "" : "s"}
                   </p>
-                  <p className="text-xs text-gray-400">{formatDateTime(o.placedAt)}</p>
+                  {o.pickupAt && tab.key !== "done" && tab.key !== "cancelled" ? (
+                    <p className="text-xs font-bold text-brand-800">Pickup {describePickupTime(o.pickupAt)}</p>
+                  ) : (
+                    <p className="text-xs text-gray-400">{formatDateTime(o.placedAt)}</p>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className="font-extrabold tabular-nums">{formatNaira(o.totalKobo)}</span>

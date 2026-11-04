@@ -8,6 +8,7 @@ import { notifyStoreStaff } from "./order-notify";
 import { changeOrderStatus, OrderError } from "./orders";
 import { commissionOn } from "./order-rules";
 import { getSettings } from "./settings";
+import { queuePush } from "./push";
 import { Prisma } from "@/generated/prisma/client";
 
 export type RiderContext = { id: string; userId: string; status: string; isOnline: boolean; vehicleType: import("@/generated/prisma/enums").VehicleType; lastLat: number | null; lastLng: number | null };
@@ -59,7 +60,7 @@ export async function acceptDelivery(rider: RiderContext, orderId: string) {
   const percent = Number((await getSettings()).riderCommissionPercent) || 0;
   const commission = commissionOn(order.deliveryFeeKobo, percent);
   try {
-    return await db.$transaction(async (tx) => {
+    const assignment = await db.$transaction(async (tx) => {
       const a = await tx.deliveryAssignment.create({
         data: {
           orderId,
@@ -74,8 +75,14 @@ export async function acceptDelivery(rider: RiderContext, orderId: string) {
       await tx.orderEvent.create({ data: { orderId, status: order.status, actorId: rider.userId, note: `Rider ${user.firstName} accepted the delivery` } });
       await tx.notification.create({ data: { userId: order.customerId, title: `Rider assigned to ${order.number}`, body: `${user.firstName} will deliver your order. You can follow them on the order page.` } });
       await notifyStoreStaff(tx, order.supermarketId, `Rider on the way for ${order.number}`, `${user.firstName} accepted the delivery and is heading to your store.`);
-      return a;
+      return { ...a, riderFirstName: user.firstName };
     });
+    queuePush([order.customerId], {
+      title: `Rider assigned to ${order.number}`,
+      body: `${assignment.riderFirstName} will deliver your order. Follow them on the order page.`,
+      url: `/orders/${order.id}`,
+    });
+    return assignment;
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") throw new OrderError("Another rider just took this delivery");
     throw err;

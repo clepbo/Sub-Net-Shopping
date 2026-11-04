@@ -8,9 +8,13 @@ import { ApprovalBadge, ApprovalNotice } from "@/components/approval";
 import { ServiceBadges, StoreStateBadge } from "@/components/store-status";
 import { ClosureControl, PauseControl } from "@/components/forms/merchant-controls";
 import { Card, Page, SectionTitle, StatTile } from "@/components/ui";
+import { WelcomePanel } from "@/components/welcome-panel";
+import { PushToggle } from "@/components/push-toggle";
+import { vapidPublicKey } from "@/lib/push";
 
-export default async function MerchantDashboard() {
+export default async function MerchantDashboard({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
   const { store } = await requireMerchantStore();
+  const { welcome } = await searchParams;
   const now = new Date();
   const a = availabilityOf(store, now);
   const active = (d: Date | null) => (d && d > now ? formatInstant(d) : null);
@@ -27,7 +31,7 @@ export default async function MerchantDashboard() {
 
   return (
     <Page>
-      <div className="flex items-center justify-between rounded-2xl bg-gray-900 p-4 text-white shadow-md">
+      <div className="flex items-center justify-between rounded-2xl bg-brand-950 p-4 text-white shadow-md">
         <div className="min-w-0">
           <p className="text-[10px] font-bold tracking-wider text-accent-400 uppercase">Merchant portal</p>
           <h1 className="truncate text-lg font-black">{store.name}</h1>
@@ -47,7 +51,19 @@ export default async function MerchantDashboard() {
         </Link>
       </nav>
 
-      <ApprovalNotice status={store.status} reason={store.statusReason} kind="supermarket" />
+      {welcome && store.status === "PENDING" ? (
+        <WelcomePanel
+          title="Registration received — your account is ready"
+          intro={`Thanks for registering ${store.name}. You're signed in and can set up your store now.`}
+          steps={[
+            { title: "Our team reviews your supermarket", body: "We check your business details. You'll get a notification here as soon as you're approved." },
+            { title: "Set up while you wait", body: "Add your logo and map location, opening hours, and your products, so you're ready on day one.", href: "/merchant/profile" },
+            { title: "Go live", body: "Once approved, customers can find your store, order and pay." },
+          ]}
+        />
+      ) : (
+        <ApprovalNotice status={store.status} reason={store.statusReason} kind="supermarket" />
+      )}
 
       <Card>
         <SectionTitle
@@ -77,6 +93,7 @@ export default async function MerchantDashboard() {
         >
           Orders to handle
         </SectionTitle>
+        <PushToggle publicKey={vapidPublicKey()} className="mb-2" />
         <div className="grid grid-cols-3 gap-2">
           <Link href="/merchant/orders?tab=new">
             <StatTile label="New" value={orders.PLACED} tone={orders.PLACED ? "yellow" : "gray"} hint="To confirm" />

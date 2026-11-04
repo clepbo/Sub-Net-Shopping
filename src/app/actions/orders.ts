@@ -18,10 +18,11 @@ export async function checkout(_prev: ActionState, formData: FormData): Promise<
   const paymentMethod = formData.get("paymentMethod") === "ONLINE" ? "ONLINE" : "PAY_AT_STORE";
   const fulfilment = formData.get("fulfilment") === "DELIVERY" ? "DELIVERY" : "PICKUP";
   const addressId = String(formData.get("addressId") ?? "") || null;
+  const pickupAt = fulfilment === "PICKUP" ? String(formData.get("pickupAt") ?? "") || null : null;
 
   let orderId: string;
   try {
-    orderId = await placeOrder({ customerId: user.id, supermarketId, checkoutKey, note, paymentMethod, fulfilment, addressId });
+    orderId = await placeOrder({ customerId: user.id, supermarketId, checkoutKey, note, paymentMethod, fulfilment, addressId, pickupAt });
   } catch (err) {
     if (err instanceof OrderError) return { error: err.message };
     throw err;

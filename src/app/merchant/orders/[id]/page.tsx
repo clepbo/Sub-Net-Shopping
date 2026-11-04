@@ -9,6 +9,7 @@ import { formatNaira } from "@/lib/money";
 import { formatNigerianPhone } from "@/lib/phone";
 import { canAdjustItems } from "@/lib/order-rules";
 import { formatDateTime } from "@/lib/time";
+import { describePickupTime } from "@/lib/pickup-slots";
 import { AdjustItemForm, OrderActions } from "@/components/forms/merchant-order-forms";
 import { OrderItemsList, OrderStatusBadge, OrderTimeline, OrderTotals } from "@/components/order-ui";
 import { Card, DefinitionList, Notice, Page, SectionTitle } from "@/components/ui";
@@ -88,6 +89,7 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
                   </a>,
                 ],
                 ["Fulfilment", order.fulfilment === "DELIVERY" ? `Delivery · ${order.deliveryDistanceKm} km` : "Reserve & Pick Up"],
+                ...(order.pickupAt ? ([["Pickup time", <strong key="t">{describePickupTime(order.pickupAt)}</strong>]] as [string, React.ReactNode][]) : []),
                 ...(order.fulfilment === "DELIVERY"
                   ? ([
                       ["Deliver to", `${order.deliveryAddress}${order.deliveryLandmark ? ` (${order.deliveryLandmark})` : ""}`],

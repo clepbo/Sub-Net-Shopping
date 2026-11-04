@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth";
 import { formatDateTime } from "@/lib/time";
 import { markNotificationsRead } from "@/app/actions/account";
 import { EmptyState, Page, PageTitle, buttonClass, cx } from "@/components/ui";
+import { PushToggle } from "@/components/push-toggle";
+import { vapidPublicKey } from "@/lib/push";
 
 export const metadata: Metadata = { title: "Notifications" };
 
@@ -29,6 +31,7 @@ export default async function NotificationsPage() {
           )
         }
       />
+      <PushToggle publicKey={vapidPublicKey()} />
       {items.length === 0 ? (
         <EmptyState icon={<BellOff className="h-8 w-8" />} title="No notifications yet" />
       ) : (

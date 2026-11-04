@@ -15,7 +15,7 @@ export function SearchBox({ defaultValue, className, autoFocus }: { defaultValue
           autoFocus={autoFocus}
           placeholder="Search products, brands or supermarkets"
           aria-label="Search products and supermarkets"
-          className="h-11 w-full rounded-l-xl border border-r-0 border-gray-200 bg-white pr-3 pl-10 text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:outline-none"
+          className="h-11 w-full rounded-l-xl border border-r-0 border-gray-300 bg-gray-50 pr-3 pl-10 text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:outline-none"
         />
       </div>
       <button type="submit" className="h-11 rounded-r-xl bg-accent-400 px-4 text-sm font-extrabold text-brand-950 hover:bg-accent-300">

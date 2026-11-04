@@ -120,6 +120,7 @@ type Schedule = {
   deliveryStart: string | null;
   deliveryEnd: string | null;
   lastDeliveryOrderTime: string | null;
+  pickupPrepMinutes: number;
 };
 
 function TimeInput({ name, label, defaultValue, state }: { name: string; label: string; defaultValue: string | null; state: ActionState }) {
@@ -207,8 +208,24 @@ export function ScheduleForm({ schedule, disabled }: { schedule: Schedule; disab
           {err("pickupStart") ? (
             <p className="text-xs font-medium text-red-600">{err("pickupStart")}</p>
           ) : (
-            <p className="text-xs text-gray-500">Leave blank to allow pickup whenever the store is open.</p>
+            <p className="text-xs text-gray-500">Customers choose a pickup time in this window. Leave blank to allow any time the store is open.</p>
           )}
+          <label className="block max-w-64 text-xs font-semibold text-gray-700">
+            Time needed to prepare an order
+            <select
+              name="pickupPrepMinutes"
+              key={v?.pickupPrepMinutes ?? schedule.pickupPrepMinutes}
+              defaultValue={String(v?.pickupPrepMinutes ?? schedule.pickupPrepMinutes)}
+              className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-2 py-2 text-sm"
+            >
+              {[15, 30, 45, 60, 90, 120, 180].map((m) => (
+                <option key={m} value={m}>
+                  {m < 60 ? `${m} minutes` : `${m / 60} hour${m === 60 ? "" : "s"}`}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block font-normal text-gray-500">The earliest pickup time customers can choose is this far ahead.</span>
+          </label>
         </section>
 
         <section className="space-y-3 border-t border-gray-100 pt-4">

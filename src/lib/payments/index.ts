@@ -6,6 +6,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "../db";
 import { announceNewOrder } from "../order-notify";
+import { queuePush } from "../push";
 import { PAYMENT_WINDOW_MINUTES } from "../order-rules";
 import { reserveStock } from "../stock";
 import { createRefund, initializeTransaction, PaystackError, verifyTransaction, type PaystackTransaction } from "./paystack";
@@ -63,6 +64,9 @@ export async function applyVerifiedTransaction(tx: PaystackTransaction): Promise
   }
 
   const amountOk = tx.amount === payment.amountKobo && tx.currency === "NGN";
+  let staffToPush: string[] = [];
+  let customerToPush: string | null = null;
+  let orderNumber = "";
   const result = await db.$transaction(async (t) => {
     await t.$queryRaw`SELECT 1 FROM "Payment" WHERE "id" = ${payment.id} FOR UPDATE`;
     const fresh = await t.payment.findUniqueOrThrow({ where: { id: payment.id } });
@@ -113,11 +117,17 @@ export async function applyVerifiedTransaction(tx: PaystackTransaction): Promise
     await t.notification.create({
       data: { userId: order.customerId, title: `Payment received for ${order.number}`, body: "Your order has been sent to the supermarket. We'll tell you when it's ready to collect." },
     });
-    await announceNewOrder(t, order, order.items.length);
+    staffToPush = await announceNewOrder(t, order, order.items.length);
+    customerToPush = order.customerId;
+    orderNumber = order.number;
     return { outcome: order.status === "AWAITING_PAYMENT" ? ("paid" as const) : ("restored" as const), refundKobo: 0 };
   });
 
   if (result.refundKobo > 0) await refundPayment(payment.id, result.refundKobo, "Payment couldn't be applied to the order");
+  if (customerToPush) {
+    queuePush([customerToPush], { title: `Payment received for ${orderNumber}`, body: "Your order has been sent to the supermarket.", url: `/orders/${payment.orderId}` });
+    queuePush(staffToPush, { title: `New order ${orderNumber}`, body: "A new paid order is waiting. Confirm it from your Orders page.", url: `/merchant/orders/${payment.orderId}` });
+  }
   return { outcome: result.outcome, orderId: payment.orderId };
 }
 

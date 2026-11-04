@@ -7,7 +7,12 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set");
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString }),
+    // Serverless Postgres (e.g. Neon) can take a few seconds to wake from idle,
+    // which would otherwise time out a transaction at Prisma's 2 s / 5 s defaults.
+    transactionOptions: { maxWait: 10_000, timeout: 20_000 },
+  });
 }
 
 export const db = globalForPrisma.prisma ?? createClient();

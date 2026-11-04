@@ -140,12 +140,21 @@ describe.skipIf(!enabled)("orders (database)", async () => {
     await expect(adjustOrderItem({ supermarketId: storeId, orderItemId: milkItem, quantity: 0, actorId: ownerId })).rejects.toThrow(/before the order is confirmed/);
   });
 
-  it("refuses checkout when pickup is paused", async () => {
+  it("only accepts pickup times after a pause, and moves the earliest slot past it", async () => {
     const c = await customer();
     await addToCart(c, bread, 1);
-    await db.supermarket.update({ where: { id: storeId }, data: { pickupPausedUntil: new Date(Date.now() + 3_600_000) } });
-    await expect(placeOrder({ customerId: c, supermarketId: storeId, checkoutKey: `${tag}-paused`, note: null })).rejects.toThrow(/paused/);
-    await db.supermarket.update({ where: { id: storeId }, data: { pickupPausedUntil: null } });
+    const pausedUntil = new Date(Date.now() + 3 * 3_600_000);
+    await db.supermarket.update({ where: { id: storeId }, data: { pickupPausedUntil: pausedUntil } });
+    const during = new Date(Date.now() + 3_600_000);
+    during.setUTCMinutes(during.getUTCMinutes() < 30 ? 30 : 60, 0, 0);
+    await expect(placeOrder({ customerId: c, supermarketId: storeId, checkoutKey: `${tag}-paused`, note: null, pickupAt: during.toISOString() })).rejects.toThrow(
+      /no longer available/,
+    );
     expect(await db.cartItem.count({ where: { userId: c } })).toBe(1);
+    const id = await placeOrder({ customerId: c, supermarketId: storeId, checkoutKey: `${tag}-paused2`, note: null });
+    const order = await db.order.findUniqueOrThrow({ where: { id } });
+    expect(order.pickupAt!.getTime()).toBeGreaterThanOrEqual(pausedUntil.getTime());
+    expect(order.pickupReminderSentAt).toBeNull(); // more than an hour away, so a reminder is due later
+    await db.supermarket.update({ where: { id: storeId }, data: { pickupPausedUntil: null } });
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { ComponentProps, ReactNode } from "react";
+import { useEffect, useRef, type ComponentProps, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { buttonClass, cx, type ButtonVariant } from "./ui";
 import type { ActionState } from "@/lib/action-state";
 
@@ -16,18 +17,44 @@ export function SubmitButton({
   const { pending } = useFormStatus();
   return (
     <button {...props} type="submit" disabled={pending || props.disabled} className={cx(buttonClass(variant, size), className)}>
-      {pending ? (pendingText ?? "Saving…") : children}
+      {pending ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          {pendingText ?? "Saving…"}
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }
 
 export function FormMessage({ state }: { state: ActionState | undefined }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const invalidCount = Object.keys(state?.fieldErrors ?? {}).length;
+
+  // After a failed submit, bring the first problem into view so it's never missed.
+  useEffect(() => {
+    if (!state || (!state.error && !invalidCount)) return;
+    const form = ref.current?.closest("form");
+    const target = form?.querySelector<HTMLElement>("[aria-invalid=true]") ?? ref.current;
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) target.focus({ preventScroll: true });
+  }, [state, invalidCount]);
+
   if (!state) return null;
+  if (!state.error && invalidCount > 0) {
+    return (
+      <div ref={ref} role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+        Please fix {invalidCount === 1 ? "the highlighted field" : `the ${invalidCount} highlighted fields`}.
+      </div>
+    );
+  }
   if (state.error) {
     return (
-      <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+      <div ref={ref} role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
         {state.error}
-      </p>
+      </div>
     );
   }
   if (state.ok) {

@@ -1,14 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LocateFixed } from "lucide-react";
 import { buttonClass } from "../ui";
 import { LeafletMap, MAP_COLORS } from "./index";
 
-/** Pin a delivery location by tapping the map or using the phone's GPS. */
-export function LocationPicker({ error, defaults }: { error?: string; defaults?: { lat: number; lng: number } }) {
+/** Pin a location by tapping the map or using the phone's GPS. */
+export function LocationPicker({
+  error,
+  defaults,
+  label = "Pin the exact spot",
+  markerLabel = "Deliver here",
+  hint = "Tap the map where the rider should come, or use your location.",
+  autoLocate = false,
+}: {
+  error?: string;
+  defaults?: { lat: number; lng: number };
+  label?: string;
+  markerLabel?: string;
+  hint?: string;
+  /** Ask for the phone's location as soon as the picker opens (when nothing is pinned yet). */
+  autoLocate?: boolean;
+}) {
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(defaults ?? null);
   const [status, setStatus] = useState<string | null>(null);
+
+  const started = useRef(false);
+  useEffect(() => {
+    if (autoLocate && !defaults && !started.current) {
+      started.current = true;
+      locate();
+    }
+    // Runs once when the picker opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function locate() {
     if (!navigator.geolocation) return setStatus("Location isn't available in this browser");
@@ -26,7 +51,7 @@ export function LocationPicker({ error, defaults }: { error?: string; defaults?:
   return (
     <div className="space-y-2">
       <div className="flex items-end justify-between gap-2">
-        <span className="text-sm font-semibold text-gray-800">Pin the exact spot</span>
+        <span className="text-sm font-semibold text-gray-800">{label}</span>
         <button type="button" onClick={locate} className={buttonClass("secondary", "sm")}>
           <LocateFixed className="h-4 w-4" aria-hidden /> Use my location
         </button>
@@ -34,7 +59,7 @@ export function LocationPicker({ error, defaults }: { error?: string; defaults?:
       <div className="h-64 overflow-hidden rounded-xl border border-gray-300">
         <LeafletMap
           className="h-full w-full"
-          points={pos ? [{ ...pos, label: "Deliver here", color: MAP_COLORS.customer }] : []}
+          points={pos ? [{ ...pos, label: markerLabel, color: MAP_COLORS.customer }] : []}
           onPick={(lat, lng) => {
             setPos({ lat, lng });
             setStatus("Pin placed.");
@@ -46,7 +71,7 @@ export function LocationPicker({ error, defaults }: { error?: string; defaults?:
       {error && !pos ? (
         <p className="text-xs font-medium text-red-600">{error}</p>
       ) : (
-        <p className="text-xs text-gray-500">{status ?? "Tap the map where the rider should come, or use your location."}</p>
+        <p className="text-xs text-gray-500">{status ?? hint}</p>
       )}
     </div>
   );

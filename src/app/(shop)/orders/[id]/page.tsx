@@ -15,6 +15,9 @@ import { CancelOrderButton, PayNowButton } from "@/components/forms/cart-forms";
 import { OrderItemsList, OrderProgress, OrderStatusBadge, OrderTimeline, OrderTotals } from "@/components/order-ui";
 import { PickupCode } from "@/components/pickup-code";
 import { DeliveryTracker } from "@/components/delivery-tracker";
+import { PushToggle } from "@/components/push-toggle";
+import { describePickupTime } from "@/lib/pickup-slots";
+import { vapidPublicKey } from "@/lib/push";
 import { Card, LinkButton, Notice, Page, SectionTitle, buttonClass } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Order" };
@@ -142,6 +145,23 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             {order.deliveryLandmark && ` (${order.deliveryLandmark})`}
           </p>
         </Card>
+      )}
+
+      {!isDelivery && order.pickupAt && ["AWAITING_PAYMENT", "PLACED", "CONFIRMED", "READY_FOR_PICKUP"].includes(order.status) && (
+        <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold tracking-wider text-gray-500 uppercase">Your pickup time</p>
+            <p className="text-xl font-extrabold text-brand-900">{describePickupTime(order.pickupAt)}</p>
+            <p className="text-xs text-gray-500">We&apos;ll remind you about an hour before.</p>
+          </div>
+          <PushToggle publicKey={vapidPublicKey()} />
+        </Card>
+      )}
+
+      {isDelivery && ["PLACED", "CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(order.status) && (
+        <div className="flex justify-end">
+          <PushToggle publicKey={vapidPublicKey()} />
+        </div>
       )}
 
       {showCode && (

@@ -67,6 +67,8 @@ export function CheckoutForm({
   deliveryBlocker,
   deliveryOptions,
   addAddressHref,
+  pickupDays,
+  prepMinutes,
 }: {
   supermarketId: string;
   checkoutKey: string;
@@ -76,6 +78,8 @@ export function CheckoutForm({
   deliveryBlocker: string | null;
   deliveryOptions: DeliveryOption[];
   addAddressHref: string;
+  pickupDays: { label: string; slots: { iso: string; label: string }[] }[];
+  prepMinutes: number;
 }) {
   const [state, action] = useActionState(checkout, {});
   // Riders don't handle cash yet, so delivery needs online payment.
@@ -126,6 +130,34 @@ export function CheckoutForm({
         })}
       </fieldset>
 
+      {fulfilment === "PICKUP" && pickupDays.length > 0 && (
+        <div className="space-y-1">
+          <label htmlFor="pickupAt" className="block text-sm font-semibold text-gray-800">
+            Pickup time
+          </label>
+          <select
+            id="pickupAt"
+            name="pickupAt"
+            defaultValue={pickupDays[0].slots[0].iso}
+            className="block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-gray-900"
+          >
+            {pickupDays.map((d) => (
+              <optgroup key={d.label} label={d.label}>
+                {d.slots.map((s, i) => (
+                  <option key={s.iso} value={s.iso}>
+                    {d.label}, {s.label}
+                    {d === pickupDays[0] && i === 0 ? " (earliest)" : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">
+            The store needs about {prepMinutes} minutes to get your order ready. We&apos;ll remind you an hour before.
+          </p>
+        </div>
+      )}
+
       {fulfilment === "DELIVERY" && (
         <fieldset className="space-y-2">
           <legend className="mb-1 text-sm font-semibold text-gray-800">Deliver to</legend>
@@ -151,7 +183,7 @@ export function CheckoutForm({
             </label>
           ))}
           <Link href={addAddressHref} className="inline-block text-sm font-bold text-brand-700">
-            + Add a delivery address
+            + Add an address (we&apos;ll find your current location)
           </Link>
         </fieldset>
       )}

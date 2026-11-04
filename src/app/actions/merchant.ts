@@ -47,6 +47,7 @@ export async function updateSchedule(_prev: ActionState, formData: FormData): Pr
     deliveryStart: str("deliveryStart"),
     deliveryEnd: str("deliveryEnd"),
     lastDeliveryOrderTime: str("lastDeliveryOrderTime"),
+    pickupPrepMinutes: str("pickupPrepMinutes") || "30",
   });
   if (!parsed.success) {
     const errors = fieldErrors(parsed.error);

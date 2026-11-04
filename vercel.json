@@ -7,7 +7,7 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/expire-payments",
+      "path": "/api/cron/tick",
       "schedule": "15 3 * * *"
     }
   ]

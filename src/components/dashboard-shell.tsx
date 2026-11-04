@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { expireStalePaymentsThrottled } from "@/lib/payments/expiry";
+import { runBackgroundJobsThrottled } from "@/lib/jobs";
 import Link from "next/link";
 import { Bell, ExternalLink, LogOut } from "lucide-react";
 import { db } from "@/lib/db";
@@ -18,8 +18,8 @@ const TITLE: Record<string, string> = { SUPERMARKET: "Merchant portal", RIDER: "
  */
 export async function DashboardShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
   const role = user.role as NavRole;
-  // Releases stock held by unpaid online orders once their 30 minutes are up.
-  after(expireStalePaymentsThrottled);
+  // Expires unpaid orders and sends pickup reminders, at most once a minute.
+  after(runBackgroundJobsThrottled);
   const unread = await db.notification.count({ where: { userId: user.id, readAt: null } });
 
   const bell = (

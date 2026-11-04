@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, destroySession } from "@/lib/session";
@@ -65,9 +66,11 @@ export async function registerCustomer(_prev: ActionState, formData: FormData): 
     if (isUniqueViolation(err)) return { error: "That email or phone number is already registered", values };
     throw err;
   }
-  await logActivity({ actorId: user.id, action: "customer.registered", targetType: "user", targetId: user.id });
+  const newUserId = user.id;
+  // Bookkeeping runs after the response so sign-up feels instant.
+  after(() => logActivity({ actorId: newUserId, action: "customer.registered", targetType: "user", targetId: newUserId }));
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });
-  redirect("/");
+  redirect("/?welcome=1");
 }
 
 const DEFAULT_HOURS = Array.from({ length: 7 }, (_, dayOfWeek) => ({
@@ -126,11 +129,16 @@ export async function registerSupermarket(_prev: ActionState, formData: FormData
     if (isUniqueViolation(err)) return { error: "That email or phone number is already registered", values };
     throw err;
   }
-  await logActivity({ actorId: user.id, action: "supermarket.registered", targetType: "user", targetId: user.id, details: d.businessName });
-  await notifyAdmins("New supermarket awaiting approval", `${d.businessName} (${d.address}) registered and needs review.`);
-  await notify(user.id, "Registration received", "Your supermarket is pending approval. We'll notify you once an admin has reviewed it.");
+  const ownerId = user.id;
+  after(() =>
+    Promise.all([
+      logActivity({ actorId: ownerId, action: "supermarket.registered", targetType: "user", targetId: ownerId, details: d.businessName }),
+      notifyAdmins("New supermarket awaiting approval", `${d.businessName} (${d.address}) registered and needs review.`),
+      notify(ownerId, "Registration received", "Your supermarket is pending approval. We'll notify you once an admin has reviewed it."),
+    ]),
+  );
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });
-  redirect("/merchant");
+  redirect("/merchant?welcome=1");
 }
 
 export async function registerRider(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -167,16 +175,21 @@ export async function registerRider(_prev: ActionState, formData: FormData): Pro
     if (isUniqueViolation(err)) return { error: "That email or phone number is already registered", values };
     throw err;
   }
-  await logActivity({ actorId: user.id, action: "rider.registered", targetType: "user", targetId: user.id });
-  await notifyAdmins("New rider awaiting approval", `${d.firstName} ${d.lastName} registered as a rider and needs review.`);
-  await notify(user.id, "Registration received", "Your rider account is pending approval. We'll notify you once an admin has reviewed it.");
+  const riderUserId = user.id;
+  after(() =>
+    Promise.all([
+      logActivity({ actorId: riderUserId, action: "rider.registered", targetType: "user", targetId: riderUserId }),
+      notifyAdmins("New rider awaiting approval", `${d.firstName} ${d.lastName} registered as a rider and needs review.`),
+      notify(riderUserId, "Registration received", "Your rider account is pending approval. We'll notify you once an admin has reviewed it."),
+    ]),
+  );
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });
-  redirect("/rider");
+  redirect("/rider?welcome=1");
 }
 
 // Compared against when no user matches, so response time doesn't reveal
 // whether an account exists.
-const DUMMY_HASH = "$2b$12$0qMTKpkHaKKgOPDlyjwXwuW9awV5WGbSIsoZhryNeTcMFEIbr4wbC";
+const DUMMY_HASH = "$2b$11$egdk/AXoMl6R6jlJTWHBq.9HWWMBAl1bijWxjIK.mL1rHKHK9sIhS";
 
 export async function login(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const values = formValues(formData);

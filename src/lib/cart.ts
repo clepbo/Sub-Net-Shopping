@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "./db";
 import { computeAvailability, type Availability as StoreAvailability } from "./availability";
 import { VISIBLE_AVAILABILITY } from "./inventory";
+import { pickupSlots, type SlotSchedule } from "./pickup-slots";
 
 const cartInclude = {
   inventory: {
@@ -65,21 +66,12 @@ export function deliveryBlocker(a: StoreAvailability): string | null {
   }
 }
 
-/** Why a store can't take a pickup order right now, or null if it can. */
-export function pickupBlocker(a: StoreAvailability): string | null {
-  if (a.store === "TEMPORARILY_CLOSED") return "This supermarket is temporarily closed.";
-  if (a.store === "CLOSED") return "This supermarket is closed right now.";
-  if (!a.acceptingOrders) return "This supermarket has stopped taking orders for today.";
-  switch (a.pickup.state) {
-    case "AVAILABLE":
-      return null;
-    case "PAUSED":
-      return "Pickup is temporarily paused at this supermarket.";
-    case "NOT_OFFERED":
-      return "This supermarket doesn't offer pickup.";
-    default:
-      return "Pickup isn't available at this time.";
-  }
+/** Why a store can't take a pickup order, or null if there's a pickup time to choose. */
+export function pickupBlocker(store: SlotSchedule, now: Date = new Date()): string | null {
+  if (!store.pickupEnabled) return "This supermarket doesn't offer pickup.";
+  if (store.temporarilyClosed) return "This supermarket is temporarily closed.";
+  if (pickupSlots(store, now).length === 0) return "No pickup times are available in the next few days.";
+  return null;
 }
 
 /** The customer's cart, grouped by supermarket, with every line re-checked. */
@@ -93,7 +85,7 @@ export async function getCart(userId: string, now = new Date()): Promise<CartGro
     if (!group) {
       const availability = computeAvailability(s, now);
       const unavailable = s.status === "APPROVED" ? null : "This supermarket isn't available on Sub Net right now.";
-      const pickup = unavailable ?? pickupBlocker(availability);
+      const pickup = unavailable ?? pickupBlocker(s, now);
       const delivery = unavailable ?? deliveryBlocker(availability);
       group = {
         supermarket: { id: s.id, name: s.name, address: s.address, area: s.area, logoUrl: s.logoUrl, latitude: s.latitude, longitude: s.longitude },

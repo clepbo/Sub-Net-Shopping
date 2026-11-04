@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { formatNaira } from "@/lib/money";
 import { formatNigerianPhone } from "@/lib/phone";
 import { formatDateTime } from "@/lib/time";
-import { LogoMark } from "./logo";
+import { Wordmark } from "./logo";
 import { OrderItemsList, OrderTotals } from "./order-ui";
 import { cx } from "./ui";
 
@@ -26,12 +26,9 @@ export function Receipt({ order }: { order: ReceiptOrder }) {
   return (
     <article className="relative space-y-5 rounded-2xl border border-gray-200 bg-white p-6 print:border-0 print:p-0">
       <header className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <LogoMark className="h-10 w-10" />
-          <div>
-            <p className="font-extrabold">Sub Net Shopping</p>
-            <p className="text-xs text-gray-500">Receipt</p>
-          </div>
+        <div>
+          <Wordmark className="h-10 w-auto" />
+          <p className="mt-1 text-xs text-gray-500">Receipt</p>
         </div>
         <p className={cx("-rotate-3 rounded-lg border-2 px-2 py-1 text-xs font-black tracking-wide uppercase", stamp.tone)}>{stamp.text}</p>
       </header>
@@ -53,6 +50,12 @@ export function Receipt({ order }: { order: ReceiptOrder }) {
             <span className="block text-xs text-gray-500">{formatNigerianPhone(order.supermarket.phone)}</span>
           </dd>
         </div>
+        {order.pickupAt && (
+          <div>
+            <dt className="text-xs text-gray-500">Pickup time</dt>
+            <dd>{formatDateTime(order.pickupAt)}</dd>
+          </div>
+        )}
         <div>
           <dt className="text-xs text-gray-500">Customer</dt>
           <dd>

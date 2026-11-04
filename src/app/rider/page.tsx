@@ -9,9 +9,13 @@ import { ApprovalBadge, ApprovalNotice } from "@/components/approval";
 import { AcceptButton, LocationSharer } from "@/components/forms/rider-delivery-forms";
 import { OnlineToggle } from "@/components/forms/rider-forms";
 import { Card, EmptyState, LinkButton, Page, SectionTitle, StatTile } from "@/components/ui";
+import { WelcomePanel } from "@/components/welcome-panel";
+import { PushToggle } from "@/components/push-toggle";
+import { vapidPublicKey } from "@/lib/push";
 
-export default async function RiderDashboard() {
+export default async function RiderDashboard({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
   const { user, rider } = await requireRider();
+  const { welcome } = await searchParams;
   const working = rider.status === "APPROVED" && rider.isOnline;
   const [active, jobs, earnings] = await Promise.all([
     activeAssignment(rider.id),
@@ -34,11 +38,24 @@ export default async function RiderDashboard() {
         <ApprovalBadge status={rider.status} />
       </div>
 
-      <ApprovalNotice status={rider.status} reason={rider.statusReason} kind="rider" />
+      {welcome && rider.status === "PENDING" ? (
+        <WelcomePanel
+          title="Registration received — your rider account is ready"
+          intro="You're signed in. Here's what happens next."
+          steps={[
+            { title: "We review your details", body: "We check you and your vehicle. You'll get a notification here once you're approved." },
+            { title: "Go online", body: "After approval, switch to online whenever you're ready to work." },
+            { title: "Accept deliveries", body: "Jobs your vehicle can carry appear here with what you'll earn. Tap to accept." },
+          ]}
+        />
+      ) : (
+        <ApprovalNotice status={rider.status} reason={rider.statusReason} kind="rider" />
+      )}
 
       <Card className="space-y-2">
         <OnlineToggle online={rider.isOnline} canGoOnline={rider.status === "APPROVED"} />
         {working && <LocationSharer />}
+        {rider.status === "APPROVED" && <PushToggle publicKey={vapidPublicKey()} />}
       </Card>
 
       <div className="grid grid-cols-3 gap-2">

@@ -49,16 +49,17 @@ model User {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  customer      Customer?
-  rider         Rider?
-  staffRoles    SupermarketStaff[]
-  ownedMarkets  Supermarket[]      @relation("SupermarketOwner")
-  notifications Notification[]
-  activity      ActivityLog[]      @relation("ActivityActor")
-  cartItems     CartItem[]
-  addresses     CustomerAddress[]
-  orders        Order[]            @relation("CustomerOrders")
-  orderEvents   OrderEvent[]
+  customer          Customer?
+  rider             Rider?
+  staffRoles        SupermarketStaff[]
+  ownedMarkets      Supermarket[]      @relation("SupermarketOwner")
+  notifications     Notification[]
+  activity          ActivityLog[]      @relation("ActivityActor")
+  cartItems         CartItem[]
+  addresses         CustomerAddress[]
+  pushSubscriptions PushSubscription[]
+  orders            Order[]            @relation("CustomerOrders")
+  orderEvents       OrderEvent[]
 
   @@index([role, status])
 }
@@ -97,9 +98,11 @@ model Supermarket {
   /// "HH:MM" — no new orders after this time.
   lastOrderTime String?
 
-  pickupEnabled Boolean @default(true)
-  pickupStart   String? // "HH:MM"
-  pickupEnd     String?
+  pickupEnabled     Boolean @default(true)
+  pickupStart       String? // "HH:MM"
+  pickupEnd         String?
+  /// Minutes the store needs to get a pickup order ready; the earliest pickup slot is this far ahead.
+  pickupPrepMinutes Int     @default(30)
 
   deliveryEnabled       Boolean @default(false)
   deliveryStart         String?
@@ -375,50 +378,53 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                 String        @id @default(cuid())
+  id                   String        @id @default(cuid())
   /// Human-friendly reference shown to customers and staff, e.g. SN-4821937.
-  number             String        @unique
-  customerId         String
-  customer           User          @relation("CustomerOrders", fields: [customerId], references: [id])
-  supermarketId      String
-  supermarket        Supermarket   @relation(fields: [supermarketId], references: [id])
-  status             OrderStatus   @default(PLACED)
-  fulfilment         Fulfilment    @default(PICKUP)
-  paymentMethod      PaymentMethod @default(PAY_AT_STORE)
-  paymentStatus      PaymentStatus @default(UNPAID)
-  subtotalKobo       Int
-  deliveryFeeKobo    Int           @default(0)
-  totalKobo          Int
-  customerNote       String?
+  number               String        @unique
+  customerId           String
+  customer             User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  supermarketId        String
+  supermarket          Supermarket   @relation(fields: [supermarketId], references: [id])
+  status               OrderStatus   @default(PLACED)
+  fulfilment           Fulfilment    @default(PICKUP)
+  paymentMethod        PaymentMethod @default(PAY_AT_STORE)
+  paymentStatus        PaymentStatus @default(UNPAID)
+  subtotalKobo         Int
+  deliveryFeeKobo      Int           @default(0)
+  totalKobo            Int
+  customerNote         String?
   /// Client-generated key so a double-submitted checkout creates one order.
-  checkoutKey        String        @unique
+  checkoutKey          String        @unique
   /// 6-digit code the customer gives at the pickup point (unique among the store's open orders).
-  pickupPin          String
+  pickupPin            String
   /// Secret in the pickup QR code; only valid until the order is collected.
-  pickupToken        String        @unique
+  pickupToken          String        @unique
   /// Store commission rate when the order was placed, and the resulting amount (PRD §18).
-  commissionPercent  Float         @default(0)
-  commissionKobo     Int           @default(0)
-  settlementId       String?
-  settlement         Settlement?   @relation(fields: [settlementId], references: [id])
-  paidAt             DateTime?
+  commissionPercent    Float         @default(0)
+  commissionKobo       Int           @default(0)
+  settlementId         String?
+  settlement           Settlement?   @relation(fields: [settlementId], references: [id])
+  paidAt               DateTime?
   /// Delivery details, copied at checkout (null for pickup orders).
-  deliveryAddress    String?
-  deliveryLandmark   String?
-  deliveryPhone      String?
-  deliveryLat        Float?
-  deliveryLng        Float?
-  deliveryDistanceKm Float?
-  requiredVehicle    VehicleType?
-  outForDeliveryAt   DateTime?
-  deliveredAt        DateTime?
-  cancelReason       String?
-  placedAt           DateTime      @default(now())
-  confirmedAt        DateTime?
-  readyAt            DateTime?
-  collectedAt        DateTime?
-  cancelledAt        DateTime?
-  updatedAt          DateTime      @updatedAt
+  deliveryAddress      String?
+  deliveryLandmark     String?
+  deliveryPhone        String?
+  deliveryLat          Float?
+  deliveryLng          Float?
+  deliveryDistanceKm   Float?
+  requiredVehicle      VehicleType?
+  outForDeliveryAt     DateTime?
+  deliveredAt          DateTime?
+  /// The pickup slot the customer chose (start of a 30-minute window).
+  pickupAt             DateTime?
+  pickupReminderSentAt DateTime?
+  cancelReason         String?
+  placedAt             DateTime      @default(now())
+  confirmedAt          DateTime?
+  readyAt              DateTime?
+  collectedAt          DateTime?
+  cancelledAt          DateTime?
+  updatedAt            DateTime      @updatedAt
 
   items    OrderItem[]
   events   OrderEvent[]
@@ -427,6 +433,7 @@ model Order {
 
   @@index([customerId, placedAt])
   @@index([supermarketId, status, placedAt])
+  @@index([status, pickupAt])
 }
 
 /// A line on an order, with name and price copied at checkout so history
@@ -631,6 +638,19 @@ model RiderPayout {
   assignments DeliveryAssignment[]
 
   @@index([riderId, createdAt])
+}
+
+/// A browser or phone that agreed to receive web push notifications.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ─── Platform ─────────────────────────────────────────────────────────

@@ -1,10 +1,12 @@
+/* eslint-disable @next/next/no-img-element -- small static brand images; no optimisation needed */
+import { cx } from "./ui";
+
+/** The rounded app icon (teal square with the cart and S). */
 export function LogoMark({ className = "h-9 w-9" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
-      <rect width="64" height="64" rx="16" fill="#facc15" />
-      <path d="M14 20h6l5 22h20l5-15H23" fill="none" stroke="#14532d" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="27" cy="49" r="3.5" fill="#14532d" />
-      <circle cx="43" cy="49" r="3.5" fill="#14532d" />
-    </svg>
-  );
+  return <img src="/brand/logo-mark.png" alt="" width={256} height={256} className={cx("shrink-0 rounded-[22%]", className)} />;
+}
+
+/** The full "SubNet Shopping" wordmark, for light backgrounds. */
+export function Wordmark({ className = "h-10 w-auto" }: { className?: string }) {
+  return <img src="/brand/logo-wordmark.png" alt="Sub Net Shopping" width={453} height={160} className={cx("shrink-0", className)} />;
 }

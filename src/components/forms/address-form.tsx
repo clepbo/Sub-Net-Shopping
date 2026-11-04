@@ -15,7 +15,7 @@ export function AddressForm({ next, phone }: { next?: string; phone: string }) {
       <Field label="Street address" name="address" placeholder="e.g. 12 Ugbowo-Lagos Road" autoComplete="street-address" state={state} />
       <Field label="Landmark" name="landmark" placeholder="e.g. Opposite UNIBEN main gate" hint="Helps the rider find you" state={state} />
       <Field label="Phone for the rider" name="phone" type="tel" defaultValue={phone} state={state} />
-      <LocationPicker error={state.fieldErrors?.latitude} />
+      <LocationPicker error={state.fieldErrors?.latitude} autoLocate />
       <SubmitButton className="w-full">Save address</SubmitButton>
     </form>
   );

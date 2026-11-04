@@ -6,6 +6,7 @@ import { requireMerchantStore } from "@/lib/supermarkets";
 import { findOrderForPickup } from "@/lib/pickup";
 import { formatNaira } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
+import { describePickupTime } from "@/lib/pickup-slots";
 import { CollectForm, MarkReadyForm } from "@/components/forms/pickup-forms";
 import { OrderItemsList, OrderStatusBadge } from "@/components/order-ui";
 import { Card, Notice, Page, PageTitle, SectionTitle } from "@/components/ui";
@@ -87,6 +88,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Promi
                 <p className="font-mono text-2xl font-black">{order.number}</p>
                 <p className="text-sm text-gray-600">
                   {order.customer.firstName} {order.customer.lastName}
+                  {order.pickupAt && ` · pickup ${describePickupTime(order.pickupAt)}`}
                 </p>
               </div>
             </div>

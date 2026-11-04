@@ -42,12 +42,3 @@ export async function expireStalePayments(now = new Date(), limit = 50) {
   }
   return expired;
 }
-
-let lastRun = 0;
-
-/** Cheap guard for calling from page renders via after(): at most once a minute per server instance. */
-export async function expireStalePaymentsThrottled() {
-  if (Date.now() - lastRun < 60_000) return;
-  lastRun = Date.now();
-  await expireStalePayments().catch((err) => console.error("expireStalePayments failed", err));
-}

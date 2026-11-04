@@ -7,7 +7,7 @@ import { CategoryTiles } from "@/components/category-tiles";
 import { ProductRail } from "@/components/product-card";
 import { StoreList } from "@/components/store-list";
 import { toStoreCards } from "@/components/store-cards";
-import { EmptyState, LinkButton, Page } from "@/components/ui";
+import { EmptyState, LinkButton, Notice, Page } from "@/components/ui";
 
 const FEATURES = [
   { icon: Scale, title: "Compare prices", body: "See what each supermarket charges for the same product." },
@@ -15,13 +15,19 @@ const FEATURES = [
   { icon: Timer, title: "Live opening status", body: "Know who's open, and who's offering pickup or delivery right now." },
 ];
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
+  const { welcome } = await searchParams;
   const [user, stores, categories, rails] = await Promise.all([getCurrentUser(), listApprovedSupermarkets(), listCategories(), homeRails()]);
   const now = new Date();
   const openCount = stores.filter((s) => availabilityOf(s, now).store === "OPEN").length;
 
   return (
     <Page className="space-y-8 lg:py-6">
+      {welcome && user && (
+        <Notice tone="green" title={`Welcome to Sub Net, ${user.firstName}! Your account is ready.`}>
+          Browse products, compare prices across supermarkets, and add items to your cart. You can pick up or get it delivered.
+        </Notice>
+      )}
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-800 to-brand-600 p-5 text-white shadow-lg lg:col-span-2 lg:p-10">
           <span className="inline-block rounded-full bg-accent-400 px-2 py-0.5 text-[10px] font-extrabold text-brand-950 uppercase">Benin City</span>

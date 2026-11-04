@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { deliveryQuote, VEHICLE_NAME } from "@/lib/delivery-rules";
 import { paystackConfigured } from "@/lib/payments/paystack";
 import { deliveryRates } from "@/lib/settings";
+import { pickupSlots } from "@/lib/pickup-slots";
 import { CheckoutForm } from "@/components/forms/cart-forms";
 import { Card, Notice, Page, PageTitle, SectionTitle } from "@/components/ui";
 
@@ -21,7 +22,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
   const group = (await getCart(user.id)).find((g) => g.supermarket.id === storeId);
   if (!group) redirect("/cart");
   const s = group.supermarket;
-  const [addresses, rates] = await Promise.all([db.customerAddress.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }), deliveryRates()]);
+  const [addresses, rates, store] = await Promise.all([
+    db.customerAddress.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
+    deliveryRates(),
+    db.supermarket.findUniqueOrThrow({ where: { id: storeId }, include: { hours: true } }),
+  ]);
+  const pickupDays = pickupSlots(store);
   const items = group.lines.map((l) => ({ isBulky: l.isBulky, quantity: l.quantity }));
   const deliveryOptions = addresses.map((a) => {
     const q = deliveryQuote({
@@ -99,6 +105,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
             deliveryBlocker={group.deliveryBlocker ?? (group.lines.some((l) => l.issue) ? "Fix the items in your cart first." : null)}
             deliveryOptions={deliveryOptions}
             addAddressHref={`/account/addresses/new?next=${encodeURIComponent(`/checkout/${s.id}`)}`}
+            pickupDays={pickupDays}
+            prepMinutes={store.pickupPrepMinutes}
           />
           <p className="text-xs text-gray-500">Prices and stock are confirmed when you place the order.</p>
         </Card>

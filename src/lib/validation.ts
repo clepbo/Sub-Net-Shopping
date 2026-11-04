@@ -159,6 +159,7 @@ export const operatingSchedule = z
     deliveryStart: optionalClockTime,
     deliveryEnd: optionalClockTime,
     lastDeliveryOrderTime: optionalClockTime,
+    pickupPrepMinutes: z.coerce.number().int().min(10).max(240).default(30),
   })
   .superRefine((s, ctx) => {
     windowCheck(s.pickupStart, s.pickupEnd, "Pickup hours", "pickupStart", ctx);

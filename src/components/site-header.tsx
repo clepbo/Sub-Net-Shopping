@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { listCategories } from "@/lib/catalog";
 import { ROLE_HOME } from "@/lib/session-token";
-import { LogoMark } from "./logo";
+import { Wordmark } from "./logo";
 import { SearchBox } from "./search-box";
 
 const ROLE_LABEL = { CUSTOMER: null, SUPERMARKET: "Merchant", RIDER: "Rider", ADMIN: "Admin" } as const;
@@ -24,12 +24,12 @@ export async function SiteHeader() {
   const bell = active && (
     <Link
       href="/notifications"
-      className="relative rounded-xl bg-brand-700/80 p-2 hover:bg-brand-700"
+      className="relative rounded-xl border border-gray-200 p-2 text-brand-800 hover:border-brand-500 hover:bg-brand-50"
       aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
     >
       <Bell className="h-5 w-5" aria-hidden />
       {unread > 0 && (
-        <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-brand-800 bg-accent-400 px-1 text-[10px] font-bold text-brand-950">
+        <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-accent-400 px-1 text-[10px] font-bold text-brand-950">
           {unread > 9 ? "9+" : unread}
         </span>
       )}
@@ -37,9 +37,9 @@ export async function SiteHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-40 bg-brand-800 text-white shadow-md">
+    <header className="sticky top-0 z-40 bg-white shadow-sm">
       {/* Utility bar */}
-      <div className="border-b border-brand-700/60 bg-brand-900/50 text-xs">
+      <div className="bg-brand-900 text-xs text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5">
           <span className="flex items-center gap-1 text-brand-100">
             <MapPin className="h-3.5 w-3.5" aria-hidden />
@@ -73,22 +73,16 @@ export async function SiteHeader() {
       </div>
 
       {/* Main bar */}
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 lg:gap-8">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <LogoMark />
-          <span>
-            <span className="block text-lg leading-none font-extrabold tracking-tight lg:text-xl">
-              Sub Net <span className="text-accent-400">Shopping</span>
-            </span>
-            <span className="text-[11px] text-brand-200">Verified supermarkets near you</span>
-          </span>
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5 lg:gap-8 lg:py-3">
+        <Link href="/" className="shrink-0" aria-label="Sub Net Shopping home">
+          <Wordmark className="h-10 w-auto lg:h-12" />
         </Link>
         <SearchBox className="hidden flex-1 lg:flex" />
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
           {active && active.role !== "CUSTOMER" && (
             <Link
               href={ROLE_HOME[active.role]}
-              className="hidden items-center gap-1.5 rounded-xl bg-brand-700/80 px-3 py-2 text-sm font-bold hover:bg-brand-700 lg:flex"
+              className="hidden items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-brand-800 hover:border-brand-500 hover:bg-brand-50 lg:flex"
             >
               <LayoutDashboard className="h-4 w-4" aria-hidden /> Dashboard
             </Link>
@@ -97,25 +91,25 @@ export async function SiteHeader() {
           {(!active || active.role === "CUSTOMER") && (
             <Link
               href="/cart"
-              className="relative flex items-center gap-1.5 rounded-xl bg-brand-700/80 p-2 text-sm font-bold hover:bg-brand-700 lg:px-3"
+              className="relative flex items-center gap-1.5 rounded-xl bg-brand-800 p-2 text-sm font-bold text-white hover:bg-brand-700 lg:px-3"
               aria-label={inCart ? `Cart, ${inCart} items` : "Cart"}
             >
               <ShoppingCart className="h-5 w-5" aria-hidden />
               <span className="hidden lg:inline">Cart</span>
               {inCart > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-brand-800 bg-accent-400 px-1 text-[10px] font-bold text-brand-950">
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-accent-400 px-1 text-[10px] font-bold text-brand-950">
                   {inCart > 99 ? "99+" : inCart}
                 </span>
               )}
             </Link>
           )}
           {active ? (
-            <Link href="/account" className="hidden items-center gap-1.5 rounded-xl bg-brand-700/80 px-3 py-2 text-sm font-bold hover:bg-brand-700 lg:flex">
+            <Link href="/account" className="hidden items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-brand-800 hover:border-brand-500 hover:bg-brand-50 lg:flex">
               <User className="h-4 w-4" aria-hidden /> Account
             </Link>
           ) : (
             <span className="hidden gap-2 lg:flex">
-              <Link href="/login" className="rounded-xl px-3 py-2 text-sm font-bold hover:bg-brand-700">
+              <Link href="/login" className="rounded-xl px-3 py-2 text-sm font-bold text-brand-800 hover:bg-brand-50">
                 Sign in
               </Link>
               <Link href="/register" className="rounded-xl bg-accent-400 px-3 py-2 text-sm font-extrabold text-brand-950 hover:bg-accent-300">
@@ -132,7 +126,7 @@ export async function SiteHeader() {
       </div>
 
       {/* Category menu (desktop) */}
-      <nav className="hidden bg-brand-900 lg:block" aria-label="Categories">
+      <nav className="hidden bg-brand-800 lg:block" aria-label="Categories">
         <ul className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 text-sm">
           <li>
             <Link href="/categories" className="flex items-center gap-1.5 py-2.5 pr-3 font-bold whitespace-nowrap text-accent-400">
@@ -141,7 +135,7 @@ export async function SiteHeader() {
           </li>
           {categories.slice(0, 8).map((c) => (
             <li key={c.id}>
-              <Link href={`/categories/${c.slug}`} className="block rounded-lg px-3 py-2.5 whitespace-nowrap text-brand-100 hover:bg-brand-800 hover:text-white">
+              <Link href={`/categories/${c.slug}`} className="block rounded-lg px-3 py-2.5 whitespace-nowrap text-brand-100 hover:bg-brand-700 hover:text-white">
                 {c.name}
               </Link>
             </li>

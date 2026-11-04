@@ -4,15 +4,17 @@ import type { PaymentMethod } from "@/generated/prisma/enums";
 
 type Tx = Prisma.TransactionClient;
 
+/** In-app notification for everyone at the store; returns their user IDs (e.g. for push). */
 export async function notifyStoreStaff(tx: Tx, supermarketId: string, title: string, body: string) {
   const staff = await tx.supermarketStaff.findMany({ where: { supermarketId }, select: { userId: true } });
   if (staff.length) await tx.notification.createMany({ data: staff.map((s) => ({ userId: s.userId, title, body })) });
+  return staff.map((s) => s.userId);
 }
 
 /** Tells the store about a new order it can act on (paid online, or pay-at-store). */
 export async function announceNewOrder(tx: Tx, order: { supermarketId: string; number: string; paymentMethod: PaymentMethod }, itemCount: number) {
   const how = order.paymentMethod === "ONLINE" ? "Paid online" : "Customer pays at the store";
-  await notifyStoreStaff(
+  return notifyStoreStaff(
     tx,
     order.supermarketId,
     `New order ${order.number}`,

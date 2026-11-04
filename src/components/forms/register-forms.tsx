@@ -1,11 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { LocateFixed } from "lucide-react";
+import { useActionState } from "react";
+import { LocationPicker } from "../map/location-picker";
 import { registerCustomer, registerRider, registerSupermarket } from "@/app/actions/auth";
 import type { ActionState } from "@/lib/action-state";
 import { Field, FormMessage, Select, SubmitButton, TextArea } from "../form";
-import { buttonClass } from "../ui";
 
 function PasswordFields({ state }: { state: ActionState }) {
   return (
@@ -70,7 +69,7 @@ export function SupermarketRegisterForm() {
   );
 }
 
-/** Latitude/longitude inputs with a "use my location" helper. */
+/** The store's map location: tap the map or use the phone's GPS while at the store. */
 export function LocationFields({
   state,
   defaults,
@@ -78,53 +77,17 @@ export function LocationFields({
   state: ActionState;
   defaults?: { latitude: number | null; longitude: number | null };
 }) {
-  const [coords, setCoords] = useState({
-    latitude: state.values?.latitude ?? (defaults?.latitude?.toString() ?? ""),
-    longitude: state.values?.longitude ?? (defaults?.longitude?.toString() ?? ""),
-  });
-  const [status, setStatus] = useState<string | null>(null);
-
-  function useMyLocation() {
-    if (!navigator.geolocation) return setStatus("Location isn't available in this browser");
-    setStatus("Getting location…");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) });
-        setStatus("Location captured — make sure you're at the store.");
-      },
-      () => setStatus("Couldn't get your location. Check location permission."),
-      { enableHighAccuracy: true, timeout: 15_000 },
-    );
-  }
-
+  const fromState =
+    state.values?.latitude && state.values?.longitude ? { lat: Number(state.values.latitude), lng: Number(state.values.longitude) } : null;
+  const fromDefaults = defaults?.latitude != null && defaults?.longitude != null ? { lat: defaults.latitude, lng: defaults.longitude } : null;
   return (
-    <div className="space-y-2">
-      <div className="flex items-end justify-between gap-2">
-        <span className="text-sm font-semibold text-gray-800">Map location</span>
-        <button type="button" onClick={useMyLocation} className={buttonClass("secondary", "sm")}>
-          <LocateFixed className="h-4 w-4" aria-hidden /> Use my location
-        </button>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field
-          label="Latitude"
-          name="latitude"
-          inputMode="decimal"
-          value={coords.latitude}
-          onChange={(e) => setCoords((c) => ({ ...c, latitude: e.target.value }))}
-          state={state}
-        />
-        <Field
-          label="Longitude"
-          name="longitude"
-          inputMode="decimal"
-          value={coords.longitude}
-          onChange={(e) => setCoords((c) => ({ ...c, longitude: e.target.value }))}
-          state={state}
-        />
-      </div>
-      <p className="text-xs text-gray-500">{status ?? "Lets customers find you and get directions."}</p>
-    </div>
+    <LocationPicker
+      label="Store location on the map"
+      markerLabel="Your store"
+      hint="Tap the map on your store's entrance, or press “Use my location” while you're at the store. Customers use this for directions and delivery prices."
+      defaults={fromState ?? fromDefaults ?? undefined}
+      error={state.fieldErrors?.latitude ?? state.fieldErrors?.longitude}
+    />
   );
 }
 

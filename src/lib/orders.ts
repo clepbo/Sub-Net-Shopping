@@ -19,9 +19,11 @@ import {
   type OrderActor,
 } from "./order-rules";
 import { deliveryRates, getSettings } from "./settings";
+import { describePickupTime, findSlot, pickupSlots, REMINDER_LEAD_MINUTES } from "./pickup-slots";
 import { announceNewOrder, notifyStoreStaff } from "./order-notify";
 import { releaseStock, reserveStock, StockError } from "./stock";
 import { refundOrderBalance } from "./payments";
+import { queuePush } from "./push";
 import { paystackConfigured } from "./payments/paystack";
 import { Prisma } from "@/generated/prisma/client";
 import type { Fulfilment, OrderStatus, PaymentMethod, VehicleType } from "@/generated/prisma/enums";
@@ -53,6 +55,8 @@ export async function placeOrder(opts: {
   fulfilment?: Fulfilment;
   /** A saved CustomerAddress, required for delivery. */
   addressId?: string | null;
+  /** Chosen pickup slot (ISO). Defaults to the earliest one on offer. */
+  pickupAt?: string | null;
   now?: Date;
 }) {
   const { customerId, supermarketId, checkoutKey } = opts;
@@ -69,9 +73,16 @@ export async function placeOrder(opts: {
 
   const store = await db.supermarket.findUnique({ where: { id: supermarketId }, include: { hours: true } });
   if (!store || store.status !== "APPROVED") throw new OrderError("This supermarket isn't available on Sub Net right now.");
-  const availability = computeAvailability(store, opts.now ?? new Date());
-  const blocker = fulfilment === "DELIVERY" ? deliveryBlocker(availability) : pickupBlocker(availability);
+  const now = opts.now ?? new Date();
+  const blocker = fulfilment === "DELIVERY" ? deliveryBlocker(computeAvailability(store, now)) : pickupBlocker(store, now);
   if (blocker) throw new OrderError(blocker);
+  let pickupAt: Date | null = null;
+  if (fulfilment === "PICKUP") {
+    const slots = pickupSlots(store, now);
+    const slot = opts.pickupAt ? findSlot(slots, opts.pickupAt) : slots[0].slots[0];
+    if (!slot) throw new OrderError("That pickup time is no longer available. Please choose another time.");
+    pickupAt = new Date(slot.iso);
+  }
   const address =
     fulfilment === "DELIVERY" && opts.addressId ? await db.customerAddress.findFirst({ where: { id: opts.addressId, userId: customerId } }) : null;
   if (fulfilment === "DELIVERY" && !address) throw new OrderError("Choose a delivery address.");
@@ -134,8 +145,9 @@ export async function placeOrder(opts: {
   let number = newOrderNumber();
   while (await db.order.findUnique({ where: { number }, select: { id: true } })) number = newOrderNumber();
 
+  let staffToPush: string[] = [];
   try {
-    return await db.$transaction(async (tx) => {
+    const id = await db.$transaction(async (tx) => {
       const reserved: boolean[] = [];
       for (const item of items) reserved.push(await reserveStock(tx, item.inventoryId, item.quantity, item.name));
       const status: OrderStatus = paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED";
@@ -150,6 +162,9 @@ export async function placeOrder(opts: {
           paymentMethod,
           fulfilment,
           ...delivery,
+          pickupAt,
+          // No reminder needed when the pickup is less than the reminder lead time away.
+          pickupReminderSentAt: pickupAt && pickupAt.getTime() - now.getTime() <= REMINDER_LEAD_MINUTES * 60_000 ? now : null,
           ...totals,
           commissionPercent,
           commissionKobo: commissionOn(totals.subtotalKobo, commissionPercent),
@@ -161,12 +176,18 @@ export async function placeOrder(opts: {
       await tx.cartItem.deleteMany({ where: { userId: customerId, inventory: { supermarketId } } });
       if (paymentMethod === "PAY_AT_STORE") {
         await tx.notification.create({
-          data: { userId: customerId, title: `Order ${number} placed`, body: `${store.name} will confirm your order shortly. You'll pay at the store when you collect.` },
+          data: {
+            userId: customerId,
+            title: `Order ${number} placed`,
+            body: `${store.name} will confirm your order shortly. Pick up ${pickupAt ? describePickupTime(pickupAt, now) : "when it's ready"} and pay at the store.`,
+          },
         });
-        await announceNewOrder(tx, order, items.length);
+        staffToPush = await announceNewOrder(tx, order, items.length);
       }
       return order.id;
     });
+    queuePush(staffToPush, { title: `New order ${number}`, body: "A new pickup order is waiting. Confirm it from your Orders page.", url: `/merchant/orders/${id}` });
+    return id;
   } catch (err) {
     if (err instanceof StockError) throw new OrderError(err.message);
     // A double-submit that lost the race to the first one.
@@ -209,6 +230,7 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
   const { orderId, actor, actorId, to } = opts;
   if (to === "CANCELLED" && actor !== "CUSTOMER" && !opts.reason) throw new OrderError("Give the customer a reason for cancelling");
 
+  let ridersToPush: string[] = [];
   const order = await db.$transaction(async (tx) => {
     // Row lock so concurrent changes run one after the other.
     await tx.$queryRaw`SELECT 1 FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
@@ -259,7 +281,7 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
         await tx.notification.create({ data: { userId: assignment.rider.userId, title: `Delivery ${order.number} cancelled`, body: "The order was cancelled, so you don't need to collect it." } });
       }
     }
-    if (to === "CONFIRMED" && order.fulfilment === "DELIVERY") await notifyRidersOfJob(tx, order);
+    if (to === "CONFIRMED" && order.fulfilment === "DELIVERY") ridersToPush = await notifyRidersOfJob(tx, order);
     // Keep the rider's job in step with the order, in the same transaction.
     if (to === "OUT_FOR_DELIVERY") {
       await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "PICKED_UP", pickedUpAt: new Date() } });
@@ -284,6 +306,14 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
   if (to === "CANCELLED" && order.paymentStatus === "PAID" && order.paymentMethod === "ONLINE") {
     await refundOrderBalance(orderId, `Order ${order.number} cancelled`);
   }
+  queuePush(ridersToPush, { title: `New delivery ${order.number}`, body: "Open your dashboard to accept it.", url: "/rider" });
+  const pushText: Partial<Record<OrderStatus, string>> = {
+    READY_FOR_PICKUP: order.fulfilment === "DELIVERY" ? "" : "Your order is ready. Show your QR code or PIN at the pickup point.",
+    OUT_FOR_DELIVERY: "Your rider is on the way. Have your delivery PIN ready.",
+    DELIVERED: "Your order has been delivered. Thanks for shopping with Sub Net!",
+    CANCELLED: actor === "CUSTOMER" ? "" : `Your order was cancelled. ${opts.reason ?? ""}`.trim(),
+  };
+  if (pushText[to]) queuePush([order.customerId], { title: `Order ${order.number}`, body: pushText[to]!, url: `/orders/${orderId}` });
   return order;
 }
 
@@ -304,6 +334,7 @@ async function notifyRidersOfJob(tx: Tx, order: { number: string; requiredVehicl
       })),
     });
   }
+  return eligible.map((r) => r.userId);
 }
 
 /**
@@ -354,5 +385,10 @@ export async function adjustOrderItem(opts: { supermarketId: string; orderItemId
     return { order, refundKobo };
   });
   if (result.refundKobo > 0) await refundOrderBalance(result.order.id, `Item change on order ${result.order.number}`, result.refundKobo);
+  queuePush([result.order.customerId], {
+    title: `Order ${result.order.number} updated`,
+    body: "The supermarket changed an item on your order. See the details and your new total.",
+    url: `/orders/${result.order.id}`,
+  });
   return result.order;
 }
