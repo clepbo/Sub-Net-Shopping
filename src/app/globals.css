@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Brand palette from the Sub Net logo: deep teal with a golden yellow accent. */
+/* Brand palette from the SubNet logo: deep teal with a golden yellow accent. */
 @theme {
   --color-brand-50: #eaf5f5;
   --color-brand-100: #cde8e8;

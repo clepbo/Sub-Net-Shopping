@@ -25,10 +25,10 @@ export default async function AdminSettings() {
         <SectionTitle>With the current rates</SectionTitle>
         <ul className="space-y-1 text-sm text-gray-700">
           <li>
-            {formatNaira(5_000_000)} order → Sub Net {formatNaira(store.commissionKobo)}, supermarket {formatNaira(store.netKobo)}
+            {formatNaira(5_000_000)} order → SubNet {formatNaira(store.commissionKobo)}, supermarket {formatNaira(store.netKobo)}
           </li>
           <li>
-            {formatNaira(500_000)} delivery fee → Sub Net {formatNaira(rider.commissionKobo)}, rider {formatNaira(rider.netKobo)}
+            {formatNaira(500_000)} delivery fee → SubNet {formatNaira(rider.commissionKobo)}, rider {formatNaira(rider.netKobo)}
           </li>
         </ul>
         <p className="mt-2 text-xs text-gray-500">Rates are recorded on each order when it&apos;s placed.</p>

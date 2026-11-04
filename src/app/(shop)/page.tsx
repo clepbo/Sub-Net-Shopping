@@ -11,7 +11,7 @@ import { EmptyState, LinkButton, Notice, Page } from "@/components/ui";
 
 const FEATURES = [
   { icon: Scale, title: "Compare prices", body: "See what each supermarket charges for the same product." },
-  { icon: BadgeCheck, title: "Verified stores only", body: "Every supermarket is checked by the Sub Net team." },
+  { icon: BadgeCheck, title: "Verified stores only", body: "Every supermarket is checked by the SubNet team." },
   { icon: Timer, title: "Live opening status", body: "Know who's open, and who's offering pickup or delivery right now." },
 ];
 
@@ -24,7 +24,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <Page className="space-y-8 lg:py-6">
       {welcome && user && (
-        <Notice tone="green" title={`Welcome to Sub Net, ${user.firstName}! Your account is ready.`}>
+        <Notice tone="green" title={`Welcome to SubNet, ${user.firstName}! Your account is ready.`}>
           Browse products, compare prices across supermarkets, and add items to your cart. You can pick up or get it delivered.
         </Notice>
       )}
@@ -85,7 +85,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
         {stores.length === 0 ? (
           <EmptyState icon={<Store className="h-8 w-8" />} title="No verified supermarkets yet">
-            Supermarkets appear here once they&apos;ve registered and been approved by the Sub Net team.
+            Supermarkets appear here once they&apos;ve registered and been approved by the SubNet team.
           </EmptyState>
         ) : (
           <StoreList stores={toStoreCards(stores, now)} />
@@ -98,7 +98,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <Store className="h-10 w-10 shrink-0 text-accent-400" aria-hidden />
             <span>
               <span className="block font-extrabold">Own a supermarket?</span>
-              <span className="text-sm text-brand-200">Reach more shoppers by selling on Sub Net.</span>
+              <span className="text-sm text-brand-200">Reach more shoppers by selling on SubNet.</span>
             </span>
           </Link>
           <Link href="/register/rider" className="flex items-center gap-4 rounded-2xl bg-accent-400 p-5 text-brand-950 hover:bg-accent-300">

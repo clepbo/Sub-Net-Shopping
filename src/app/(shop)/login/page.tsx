@@ -14,13 +14,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { next } = await searchParams;
   return (
     <Page>
-      <PageTitle title="Welcome back" subtitle="Sign in to your Sub Net account." />
+      <PageTitle title="Welcome back" subtitle="Sign in to your SubNet account." />
       <Card>
         <LoginForm next={next} />
       </Card>
       <div className="space-y-2 text-center text-sm">
         <p>
-          New to Sub Net?{" "}
+          New to SubNet?{" "}
           <Link href="/register" className="font-bold text-brand-700 underline">
             Create an account
           </Link>

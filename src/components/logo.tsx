@@ -8,5 +8,5 @@ export function LogoMark({ className = "h-9 w-9" }: { className?: string }) {
 
 /** The full "SubNet Shopping" wordmark, for light backgrounds. */
 export function Wordmark({ className = "h-10 w-auto" }: { className?: string }) {
-  return <img src="/brand/logo-wordmark.png" alt="Sub Net Shopping" width={453} height={160} className={cx("shrink-0", className)} />;
+  return <img src="/brand/logo-wordmark.png" alt="SubNet Shopping" width={453} height={160} className={cx("shrink-0", className)} />;
 }

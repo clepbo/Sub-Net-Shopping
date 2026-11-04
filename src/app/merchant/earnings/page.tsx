@@ -19,14 +19,14 @@ export default async function EarningsPage() {
       <PageTitle
         eyebrow="Merchant"
         title="Earnings"
-        subtitle="Collected orders not yet settled. Sub Net holds online payments and pays them out minus commission; commission on pay-at-store sales is deducted from the payout."
+        subtitle="Collected orders not yet settled. SubNet holds online payments and pays them out minus commission; commission on pay-at-store sales is deducted from the payout."
       />
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <StatTile label="Collected sales" value={formatNaira(summary.grossKobo)} hint={`${summary.orderCount} orders`} />
         <StatTile label="Commission" value={formatNaira(summary.commissionKobo)} tone="yellow" />
         <StatTile label="Online, after commission" value={formatNaira(summary.onlineNetKobo)} tone="blue" />
         <StatTile
-          label={summary.payableKobo >= 0 ? "Next payout" : "You owe Sub Net"}
+          label={summary.payableKobo >= 0 ? "Next payout" : "You owe SubNet"}
           value={formatNaira(Math.abs(summary.payableKobo))}
           tone={summary.payableKobo >= 0 ? "green" : "red"}
         />
@@ -34,7 +34,7 @@ export default async function EarningsPage() {
       <Card>
         <SectionTitle>Settlement statements</SectionTitle>
         {settlements.length === 0 ? (
-          <EmptyState title="No statements yet">Sub Net creates statements for collected orders and pays them out by bank transfer.</EmptyState>
+          <EmptyState title="No statements yet">SubNet creates statements for collected orders and pays them out by bank transfer.</EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">

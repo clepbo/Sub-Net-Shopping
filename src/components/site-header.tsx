@@ -49,10 +49,10 @@ export async function SiteHeader() {
             {!active && (
               <span className="hidden gap-4 lg:flex">
                 <Link href="/register/supermarket" className="text-brand-100 hover:text-white">
-                  Sell on Sub Net
+                  Sell on SubNet
                 </Link>
                 <Link href="/register/rider" className="text-brand-100 hover:text-white">
-                  Deliver with Sub Net
+                  Deliver with SubNet
                 </Link>
               </span>
             )}
@@ -74,7 +74,7 @@ export async function SiteHeader() {
 
       {/* Main bar */}
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5 lg:gap-8 lg:py-3">
-        <Link href="/" className="shrink-0" aria-label="Sub Net Shopping home">
+        <Link href="/" className="shrink-0" aria-label="SubNet Shopping home">
           <Wordmark className="h-10 w-auto lg:h-12" />
         </Link>
         <SearchBox className="hidden flex-1 lg:flex" />

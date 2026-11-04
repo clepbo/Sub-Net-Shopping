@@ -33,7 +33,7 @@ export async function requireMerchantStore(opts: { managerOnly?: boolean } = {})
  */
 export async function requireEditableStore() {
   const ctx = await requireMerchantStore({ managerOnly: true });
-  const blocked = ctx.store.status === "SUSPENDED" ? "This supermarket is suspended. Contact Sub Net support to make changes." : null;
+  const blocked = ctx.store.status === "SUSPENDED" ? "This supermarket is suspended. Contact SubNet support to make changes." : null;
   return { ...ctx, blocked };
 }
 

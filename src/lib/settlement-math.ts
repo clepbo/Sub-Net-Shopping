@@ -1,7 +1,7 @@
-// Settlement arithmetic (PRD §18). Sub Net holds online payments and owes
+// Settlement arithmetic (PRD §18). SubNet holds online payments and owes
 // the store their value minus commission; the store holds pay-at-store
-// takings and owes Sub Net the commission on them. Delivery fees belong to
-// the rider and Sub Net, so they're left out of the store's figures.
+// takings and owes SubNet the commission on them. Delivery fees belong to
+// the rider and SubNet, so they're left out of the store's figures.
 
 export type SettleableOrder = { totalKobo: number; deliveryFeeKobo?: number; commissionKobo: number; paymentMethod: "ONLINE" | "PAY_AT_STORE" };
 

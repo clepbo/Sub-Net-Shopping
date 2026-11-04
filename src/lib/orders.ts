@@ -72,7 +72,7 @@ export async function placeOrder(opts: {
   if (fulfilment === "DELIVERY" && paymentMethod !== "ONLINE") throw new OrderError("Delivery orders are paid online.");
 
   const store = await db.supermarket.findUnique({ where: { id: supermarketId }, include: { hours: true } });
-  if (!store || store.status !== "APPROVED") throw new OrderError("This supermarket isn't available on Sub Net right now.");
+  if (!store || store.status !== "APPROVED") throw new OrderError("This supermarket isn't available on SubNet right now.");
   const now = opts.now ?? new Date();
   const blocker = fulfilment === "DELIVERY" ? deliveryBlocker(computeAvailability(store, now)) : pickupBlocker(store, now);
   if (blocker) throw new OrderError(blocker);
@@ -211,9 +211,9 @@ const TIMESTAMP: Partial<Record<OrderStatus, "confirmedAt" | "readyAt" | "collec
 const CUSTOMER_MESSAGE: Partial<Record<OrderStatus, string>> = {
   CONFIRMED: "The supermarket has confirmed your order and is preparing it.",
   READY_FOR_PICKUP: "Your order is ready. Show your pickup QR code or PIN at the pickup point.",
-  COLLECTED: "Thanks for shopping with Sub Net! Your receipt is on the order page.",
+  COLLECTED: "Thanks for shopping with SubNet! Your receipt is on the order page.",
   OUT_FOR_DELIVERY: "Your rider has picked up your order and is on the way. Track them on the order page and give them your PIN when they arrive.",
-  DELIVERED: "Your order has been delivered. Thanks for shopping with Sub Net!",
+  DELIVERED: "Your order has been delivered. Thanks for shopping with SubNet!",
 };
 
 const DELIVERY_CUSTOMER_MESSAGE: Partial<Record<OrderStatus, string>> = {
@@ -310,7 +310,7 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
   const pushText: Partial<Record<OrderStatus, string>> = {
     READY_FOR_PICKUP: order.fulfilment === "DELIVERY" ? "" : "Your order is ready. Show your QR code or PIN at the pickup point.",
     OUT_FOR_DELIVERY: "Your rider is on the way. Have your delivery PIN ready.",
-    DELIVERED: "Your order has been delivered. Thanks for shopping with Sub Net!",
+    DELIVERED: "Your order has been delivered. Thanks for shopping with SubNet!",
     CANCELLED: actor === "CUSTOMER" ? "" : `Your order was cancelled. ${opts.reason ?? ""}`.trim(),
   };
   if (pushText[to]) queuePush([order.customerId], { title: `Order ${order.number}`, body: pushText[to]!, url: `/orders/${orderId}` });

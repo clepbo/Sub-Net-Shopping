@@ -1,6 +1,6 @@
-// Sub Net Shopping service worker: shows web push notifications.
+// SubNet Shopping service worker: shows web push notifications.
 self.addEventListener("push", (event) => {
-  let data = { title: "Sub Net Shopping", body: "", url: "/" };
+  let data = { title: "SubNet Shopping", body: "", url: "/" };
   try {
     data = { ...data, ...event.data.json() };
   } catch {

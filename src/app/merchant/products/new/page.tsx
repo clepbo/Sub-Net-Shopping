@@ -78,7 +78,7 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
   return (
     <Page>
       {back}
-      <PageTitle title="Add a product" subtitle="Check whether it's already in the Sub Net catalogue, so shoppers can compare your price with other stores." />
+      <PageTitle title="Add a product" subtitle="Check whether it's already in the SubNet catalogue, so shoppers can compare your price with other stores." />
       <Card className="space-y-4">
         <Form action="/merchant/products/new" className="flex gap-2">
           <div className="relative flex-1">

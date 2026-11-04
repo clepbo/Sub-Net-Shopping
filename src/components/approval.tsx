@@ -41,8 +41,8 @@ export function ApprovalNotice({ status, reason, kind }: { status: ApprovalStatu
       {reason && <p>Reason: {reason}</p>}
       <p>
         {status === "REJECTED"
-          ? "Update your details and contact Sub Net support to be reviewed again."
-          : "Contact Sub Net support to resolve this."}
+          ? "Update your details and contact SubNet support to be reviewed again."
+          : "Contact SubNet support to resolve this."}
       </p>
     </Notice>
   );

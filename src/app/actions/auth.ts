@@ -204,7 +204,7 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
   const valid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !valid) return { error: "Incorrect email/phone or password", values };
   if (user.status === "SUSPENDED") {
-    return { error: "This account has been suspended. Contact Sub Net support for help.", values };
+    return { error: "This account has been suspended. Contact SubNet support for help.", values };
   }
 
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });

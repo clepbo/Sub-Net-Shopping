@@ -1,5 +1,5 @@
 // A local stand-in for Paystack's API and hosted checkout, for development
-// and tests without real keys. It implements the endpoints Sub Net uses:
+// and tests without real keys. It implements the endpoints SubNet uses:
 // transaction initialize/verify, refunds, and signed webhooks.
 //
 //   PAYSTACK_SECRET_KEY=sk_test_local node scripts/mock-paystack.mjs

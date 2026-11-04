@@ -84,7 +84,7 @@ export async function getCart(userId: string, now = new Date()): Promise<CartGro
     let group = groups.get(s.id);
     if (!group) {
       const availability = computeAvailability(s, now);
-      const unavailable = s.status === "APPROVED" ? null : "This supermarket isn't available on Sub Net right now.";
+      const unavailable = s.status === "APPROVED" ? null : "This supermarket isn't available on SubNet right now.";
       const pickup = unavailable ?? pickupBlocker(s, now);
       const delivery = unavailable ?? deliveryBlocker(availability);
       group = {

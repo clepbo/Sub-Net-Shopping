@@ -74,7 +74,7 @@ export function DeliveredForm({ assignmentId }: { assignmentId: string }) {
   );
 }
 
-/** Sends the rider's GPS position to Sub Net every ~15 s while this is on screen. */
+/** Sends the rider's GPS position to SubNet every ~15 s while this is on screen. */
 export function LocationSharer() {
   // Read on the client only: Node also has a `navigator`, but without geolocation,
   // so checking it during render would make the server and phone disagree.

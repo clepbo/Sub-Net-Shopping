@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sub Net Shopping",
-    short_name: "Sub Net",
+    name: "SubNet Shopping",
+    short_name: "SubNet",
     description: "Shop verified supermarkets in Benin City.",
     start_url: "/",
     display: "standalone",

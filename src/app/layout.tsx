@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Sub Net Shopping", template: "%s · Sub Net Shopping" },
+  title: { default: "SubNet Shopping", template: "%s · SubNet Shopping" },
   description: "Shop verified supermarkets in Benin City — compare prices, see what's in stock, and reserve or get it delivered.",
-  applicationName: "Sub Net Shopping",
-  appleWebApp: { capable: true, title: "Sub Net", statusBarStyle: "black-translucent" },
+  applicationName: "SubNet Shopping",
+  appleWebApp: { capable: true, title: "SubNet", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

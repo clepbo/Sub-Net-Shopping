@@ -85,7 +85,7 @@ export default async function ProductPage({ params }: Props) {
           {product.description && <p className="text-sm leading-relaxed whitespace-pre-line text-gray-700">{product.description}</p>}
 
           <Notice tone="green" title="Pick up or get it delivered">
-            Choose a supermarket below and add to cart. Collect it yourself, or have a Sub Net rider bring it to you.
+            Choose a supermarket below and add to cart. Collect it yourself, or have a SubNet rider bring it to you.
           </Notice>
         </div>
       </div>

@@ -25,7 +25,7 @@ export default async function AdminSettlements() {
       <PageTitle
         eyebrow="Admin"
         title="Settlements & payouts"
-        subtitle="Payable = online sales minus commission, minus commission owed on pay-at-store sales. Negative means the supermarket owes Sub Net."
+        subtitle="Payable = online sales minus commission, minus commission owed on pay-at-store sales. Negative means the supermarket owes SubNet."
       />
       <Card>
         <SectionTitle>Waiting to be settled</SectionTitle>

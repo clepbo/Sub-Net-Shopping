@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Register a supermarket" };
 export default function RegisterSupermarketPage() {
   return (
     <Page>
-      <PageTitle eyebrow="For supermarkets" title="Sell on Sub Net" subtitle="Reach shoppers across Benin City with your existing store." />
+      <PageTitle eyebrow="For supermarkets" title="Sell on SubNet" subtitle="Reach shoppers across Benin City with your existing store." />
       <Notice tone="yellow" title="Every supermarket is verified">
         After you register, our team reviews your details. Your store becomes visible to customers once approved.
       </Notice>

@@ -71,7 +71,7 @@ export function SettingsForm({
         max={50}
         inputMode="decimal"
         defaultValue={values.supermarketCommissionPercent}
-        hint="Taken from eligible Sub Net sales. PRD proposal: 10%."
+        hint="Taken from eligible SubNet sales. PRD proposal: 10%."
         state={state}
       />
       <Field

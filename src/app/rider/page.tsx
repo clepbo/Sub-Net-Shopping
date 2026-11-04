@@ -27,7 +27,7 @@ export default async function RiderDashboard({ searchParams }: { searchParams: P
     <Page>
       <div className="flex items-center justify-between rounded-2xl bg-brand-900 p-4 text-white shadow-md">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold tracking-wider text-accent-400 uppercase">Sub Net rider</p>
+          <p className="text-[10px] font-bold tracking-wider text-accent-400 uppercase">SubNet rider</p>
           <h1 className="truncate text-lg font-black">
             {user.firstName} {user.lastName}
           </h1>

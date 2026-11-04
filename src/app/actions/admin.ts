@@ -48,7 +48,7 @@ export async function decideSupermarket(_prev: ActionState, formData: FormData):
   await notify(
     store.ownerId,
     `Your supermarket was ${verb}`,
-    decision === "APPROVED" ? `${store.name} is now visible to customers on Sub Net.` : `Reason: ${reason}`,
+    decision === "APPROVED" ? `${store.name} is now visible to customers on SubNet.` : `Reason: ${reason}`,
   );
   revalidatePath("/admin", "layout");
   revalidatePath("/", "layout");

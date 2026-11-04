@@ -1,4 +1,4 @@
-# Sub Net Shopping
+# SubNet Shopping
 
 A mobile-first web app that connects shoppers in Benin City with **verified supermarkets**, plus web dashboards for supermarkets, delivery riders and platform admins.
 
@@ -33,7 +33,7 @@ Customers choose **Pay now online** (Paystack: card, bank transfer, USSD) or **P
 - **Refunds** go out through Paystack when a paid order is cancelled (in full) or the store reduces items (the difference). Refunds that Paystack rejects appear on the admin Payments page with a Retry button.
 - **Pickup verification (PRD §13):** every order has a QR code and a 6-digit PIN. Scanning the QR with a phone camera opens the store's pickup screen; staff can also type the PIN. Collection can only be completed with a valid code for a ready, uncollected order at that store, and the code stops working once used. The pickup screen tells staff whether the order is already paid or how much to collect.
 - **Digital receipts** that print or save as PDF, stamped from the order's live status (paid, collected / code expired, cancelled / refunded).
-- **Commission & settlement (PRD §18):** each order records the supermarket commission rate at checkout. Admins create settlement statements per supermarket from collected orders: online sales minus commission, minus commission owed on pay-at-store sales (negative means the store owes Sub Net). Then they mark them paid with the bank transfer reference. Supermarkets see unsettled earnings and statements on their Earnings page.
+- **Commission & settlement (PRD §18):** each order records the supermarket commission rate at checkout. Admins create settlement statements per supermarket from collected orders: online sales minus commission, minus commission owed on pay-at-store sales (negative means the store owes SubNet). Then they mark them paid with the bank transfer reference. Supermarkets see unsettled earnings and statements on their Earnings page.
 
 ## Phase 3 — Cart & orders
 

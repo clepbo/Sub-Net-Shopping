@@ -65,7 +65,7 @@ export function PushToggle({ publicKey, className }: { publicKey: string | null;
 
   if (status === "checking" || status === "unsupported") return null;
   if (status === "ios-install") {
-    return <p className={cx("text-xs text-gray-600", className)}>To get reminders on iPhone, tap Share → “Add to Home Screen”, then open Sub Net from your home screen.</p>;
+    return <p className={cx("text-xs text-gray-600", className)}>To get reminders on iPhone, tap Share → “Add to Home Screen”, then open SubNet from your home screen.</p>;
   }
   if (status === "blocked") {
     return <p className={cx("text-xs text-gray-600", className)}>Notifications are blocked for this site. Allow them in your browser settings to get reminders.</p>;

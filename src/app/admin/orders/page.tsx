@@ -28,7 +28,7 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
   ]);
   return (
     <Page>
-      <PageTitle eyebrow="Admin" title="Orders" subtitle="Every order across Sub Net, newest first." />
+      <PageTitle eyebrow="Admin" title="Orders" subtitle="Every order across SubNet, newest first." />
       <FilterTabs
         base="/admin/orders"
         current={status ?? ""}

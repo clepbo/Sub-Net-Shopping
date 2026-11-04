@@ -106,7 +106,7 @@ export function CheckoutForm({
         {(
           [
             ["PICKUP", "Reserve & Pick Up", pickupBlocker ?? "Collect from the store. No fee."],
-            ["DELIVERY", "Delivery", deliveryUnavailable ?? "A Sub Net rider brings it to you."],
+            ["DELIVERY", "Delivery", deliveryUnavailable ?? "A SubNet rider brings it to you."],
           ] as const
         ).map(([value, label, hint]) => {
           const disabled = value === "PICKUP" ? Boolean(pickupBlocker) : Boolean(deliveryUnavailable);

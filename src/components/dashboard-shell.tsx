@@ -40,7 +40,7 @@ export async function DashboardShell({ user, children }: { user: CurrentUser; ch
           <LogoMark />
           <span>
             <span className="block leading-none font-extrabold">
-              Sub Net <span className="text-accent-400">Shopping</span>
+              SubNet <span className="text-accent-400">Shopping</span>
             </span>
             <span className="text-[11px] text-brand-200">{TITLE[role]}</span>
           </span>
@@ -67,7 +67,7 @@ export async function DashboardShell({ user, children }: { user: CurrentUser; ch
               <LogoMark className="h-8 w-8" />
               <span className="leading-tight">
                 <span className="block font-extrabold">
-                  Sub Net <span className="text-accent-400">Shopping</span>
+                  SubNet <span className="text-accent-400">Shopping</span>
                 </span>
                 <span className="text-[11px] text-brand-200">{TITLE[role]}</span>
               </span>

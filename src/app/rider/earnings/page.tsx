@@ -24,7 +24,7 @@ export default async function RiderEarnings() {
   ]);
   return (
     <Page>
-      <PageTitle eyebrow="Rider" title="Earnings" subtitle="You earn each delivery fee minus Sub Net's commission. Earnings become payable once a delivery is completed." />
+      <PageTitle eyebrow="Rider" title="Earnings" subtitle="You earn each delivery fee minus SubNet's commission. Earnings become payable once a delivery is completed." />
       <div className="grid grid-cols-3 gap-2">
         <StatTile label="Payable" value={formatNaira(summary.eligibleKobo)} tone="green" />
         <StatTile label="In progress" value={formatNaira(summary.pendingKobo)} tone="yellow" />

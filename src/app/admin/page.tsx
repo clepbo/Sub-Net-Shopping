@@ -19,7 +19,7 @@ export default async function AdminOverview() {
 
   return (
     <Page>
-      <PageTitle eyebrow="Admin" title="Platform overview" subtitle="Live figures from the Sub Net database." />
+      <PageTitle eyebrow="Admin" title="Platform overview" subtitle="Live figures from the SubNet database." />
 
       {(stats.supermarkets.PENDING > 0 || stats.riders.PENDING > 0) && (
         <div className="grid grid-cols-2 gap-3">

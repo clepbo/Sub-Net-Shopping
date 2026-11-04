@@ -18,7 +18,7 @@ describe("computeSettlement", () => {
     });
   });
 
-  it("goes negative when the store owes Sub Net", () => {
+  it("goes negative when the store owes SubNet", () => {
     expect(computeSettlement([{ totalKobo: 1_000_000, commissionKobo: 100_000, paymentMethod: "PAY_AT_STORE" }]).payableKobo).toBe(-100_000);
   });
 

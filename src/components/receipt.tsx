@@ -92,7 +92,7 @@ export function Receipt({ order }: { order: ReceiptOrder }) {
           </ul>
         )}
       </div>
-      <p className="text-center text-xs text-gray-400">This receipt reflects the order&apos;s status in Sub Net when it was viewed.</p>
+      <p className="text-center text-xs text-gray-400">This receipt reflects the order&apos;s status in SubNet when it was viewed.</p>
     </article>
   );
 }
