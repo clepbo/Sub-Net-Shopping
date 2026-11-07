@@ -2,6 +2,7 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { databaseUrls } from "./src/lib/database-url";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -10,7 +11,7 @@ export default defineConfig({
   },
   datasource: {
     // Migrations need a direct connection; hosted Postgres (e.g. Neon on
-    // Vercel) exposes it separately from the pooled DATABASE_URL.
-    url: process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DATABASE_URL"],
+    // Vercel) exposes it separately from the pooled URL. Staging has its own.
+    url: databaseUrls().direct,
   },
 });

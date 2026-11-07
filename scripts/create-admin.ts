@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { normalizeNigerianPhone } from "../src/lib/phone";
+import { databaseUrls } from "../src/lib/database-url";
 
 const { values } = parseArgs({
   options: {
@@ -32,7 +33,7 @@ const lastName = values["last-name"]?.trim() || fail("--last-name is required");
 const password = process.env.ADMIN_PASSWORD ?? fail("Set ADMIN_PASSWORD in the environment");
 if (password.length < 12) fail("ADMIN_PASSWORD must be at least 12 characters");
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrls().pooled! }) });
 
 async function main() {
   const existing = await db.user.findFirst({ where: { OR: [{ email }, { phone }] } });
