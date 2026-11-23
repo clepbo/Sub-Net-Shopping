@@ -58,6 +58,19 @@ export default async function RiderDashboard({ searchParams }: { searchParams: P
         {rider.status === "APPROVED" && <PushToggle publicKey={vapidPublicKey()} />}
       </Card>
 
+      {rider.cashBlockedAt && (
+        <Link href="/rider/wallet" className="block rounded-2xl bg-red-600 p-4 text-white">
+          <p className="font-extrabold">Account paused: pay in your collected cash</p>
+          <p className="text-sm text-red-100">
+            You&apos;re holding {formatNaira(-rider.walletBalanceKobo)}. Transfer it to your SubNet account to take deliveries again →
+          </p>
+        </Link>
+      )}
+      {!rider.cashBlockedAt && rider.walletBalanceKobo < 0 && (
+        <Link href="/rider/wallet" className="block rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">
+          You&apos;re holding <span className="font-bold">{formatNaira(-rider.walletBalanceKobo)}</span> in collected cash. Pay it in soon →
+        </Link>
+      )}
       <div className="grid grid-cols-3 gap-2">
         <StatTile label="Payable" value={formatNaira(earnings.eligibleKobo)} tone="green" />
         <StatTile label="In progress" value={formatNaira(earnings.pendingKobo)} tone="yellow" />
@@ -108,6 +121,9 @@ export default async function RiderDashboard({ searchParams }: { searchParams: P
                       {o.deliveryDistanceKm} km to the customer · {o._count.items} item{o._count.items === 1 ? "" : "s"} · {VEHICLE_NAME[o.requiredVehicle ?? "MOTORCYCLE"]}
                       {o.status === "READY_FOR_PICKUP" ? " · packed and ready" : " · being packed"}
                     </p>
+                    {o.paymentMethod === "CASH_ON_DELIVERY" && (
+                      <p className="rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900">Cash order: collect {formatNaira(o.totalKobo)} from the customer</p>
+                    )}
                     <AcceptButton orderId={o.id} />
                   </Card>
                 </li>
@@ -117,7 +133,10 @@ export default async function RiderDashboard({ searchParams }: { searchParams: P
         </section>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        <LinkButton href="/rider/wallet" variant="secondary" size="sm">
+          Cash wallet
+        </LinkButton>
         <LinkButton href="/rider/earnings" variant="secondary" size="sm">
           Earnings &amp; payouts
         </LinkButton>

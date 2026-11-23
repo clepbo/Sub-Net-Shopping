@@ -32,7 +32,15 @@ function ListingFields({ state, defaults }: { state: ActionState; defaults?: Lis
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Your SKU / product code" name="sku" defaultValue={defaults?.sku} state={state} hint="The code your till or POS uses" />
-      <Field label="Price (₦)" name="price" inputMode="decimal" placeholder="e.g. 1500" defaultValue={defaults?.price} state={state} />
+      <Field
+        label="Your shelf price (₦)"
+        name="price"
+        inputMode="decimal"
+        placeholder="e.g. 1500"
+        hint="What you charge in store. You receive exactly this; customers see it with SubNet's markup added."
+        defaultValue={defaults?.price}
+        state={state}
+      />
       <Field
         label="Stock quantity"
         name="stockQuantity"
@@ -217,7 +225,20 @@ export function DeleteListingButton({ inventoryId, name }: { inventoryId: string
 }
 
 /** Price and stock editing inline in the products table. */
-export function QuickEdit({ inventoryId, price, stockQuantity, label }: { inventoryId: string; price: string; stockQuantity: string; label: string }) {
+export function QuickEdit({
+  inventoryId,
+  price,
+  stockQuantity,
+  label,
+  customerPrice,
+}: {
+  inventoryId: string;
+  price: string;
+  stockQuantity: string;
+  label: string;
+  /** What customers see, when the price is marked up. */
+  customerPrice?: string | null;
+}) {
   const [state, action] = useActionState(quickUpdateListing, {});
   return (
     <form action={action} className="flex flex-wrap items-center gap-2">
@@ -228,10 +249,12 @@ export function QuickEdit({ inventoryId, price, stockQuantity, label }: { invent
           name="price"
           defaultValue={price}
           inputMode="decimal"
-          aria-label={`Price for ${label}`}
+          aria-label={`Shelf price for ${label}`}
+          title={customerPrice ? `Customers see ${customerPrice}` : undefined}
           className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
         />
       </label>
+      {customerPrice && <span className="hidden text-[11px] text-gray-500 md:inline">shows {customerPrice}</span>}
       <label className="flex items-center gap-1 text-xs text-gray-500">
         Qty
         <input

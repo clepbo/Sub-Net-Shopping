@@ -190,6 +190,11 @@ export const platformSettings = z.object({
   deliveryBaseFee: z.coerce.number().min(0).max(100_000),
   deliveryPerKm: z.coerce.number().min(0).max(10_000),
   deliveryMaxKm: z.coerce.number().min(1).max(100),
+  defaultMarkupPercent: z.coerce.number().min(0).max(100),
+  gatewayFeePercent: z.coerce.number().min(0).max(10),
+  riderMaxCashDebt: z.coerce.number().min(0).max(10_000_000),
+  cashOnDeliveryEnabled: z.preprocess((v) => (v === "on" || v === "1" ? "1" : "0"), z.enum(["0", "1"])),
+  cashOnDeliveryMaxOrder: z.coerce.number().min(0).max(10_000_000),
 });
 
 export const customerAddress = z.object({
@@ -267,6 +272,8 @@ export const categoryFields = z.object({
   name: z.string().trim().min(2, "Enter a name").max(60),
   icon: optionalText(8),
   sortOrder: z.coerce.number().int().min(0).max(10_000),
+  /** Blank means "use the parent's or the platform default". */
+  markupPercent: z.preprocess((v) => (v === "" || v === undefined ? null : v), z.coerce.number().min(0).max(100).nullable()),
   parentId: z
     .string()
     .trim()
@@ -279,4 +286,10 @@ export const staffInvite = z.object({
   phone: nigerianPhone,
   email,
   role: z.enum(["STAFF", "MANAGER"], { message: "Choose a role" }),
+});
+
+export const bankDetails = z.object({
+  bankCode: z.string().trim().min(3, "Choose your bank").max(10),
+  bankAccountNumber: z.string().trim().regex(/^\d{10}$/, "Account numbers have 10 digits"),
+  bankAccountName: optionalText(100),
 });

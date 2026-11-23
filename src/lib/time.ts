@@ -11,6 +11,12 @@ export function lagosClock(now: Date): { dayOfWeek: number; minutes: number } {
   return { dayOfWeek: shifted.getUTCDay(), minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes() };
 }
 
+/** Lagos calendar date and hour. */
+export function lagosParts(now: Date) {
+  const shifted = new Date(now.getTime() + LAGOS_OFFSET_MINUTES * 60_000);
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate(), hour: shifted.getUTCHours() };
+}
+
 /** "HH:MM" → minutes since midnight. */
 export function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);

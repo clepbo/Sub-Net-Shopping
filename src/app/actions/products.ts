@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { listingPrices } from "@/lib/pricing";
 import { requireEditableStore } from "@/lib/supermarkets";
 import { logActivity } from "@/lib/activity";
 import { deleteStoredFile, storeImage } from "@/lib/storage";
@@ -122,7 +123,7 @@ export async function createListing(_prev: ActionState, formData: FormData): Pro
           supermarketId: store.id,
           productId,
           sku: l.sku,
-          priceKobo: l.priceKobo,
+          ...(await listingPrices(tx, productId, l.priceKobo).then(({ priceKobo, shelfPriceKobo }) => ({ priceKobo, shelfPriceKobo }))),
           stockQuantity: l.stockQuantity,
           availability: deriveAvailability(l.status, l.stockQuantity),
         },
@@ -165,7 +166,13 @@ export async function updateListing(_prev: ActionState, formData: FormData): Pro
   try {
     await db.inventory.update({
       where: { id },
-      data: { sku: l.sku, priceKobo: l.priceKobo, stockQuantity: l.stockQuantity, availability: deriveAvailability(l.status, l.stockQuantity), source: "MANUAL" },
+      data: {
+        sku: l.sku,
+        ...(await listingPrices(db, listing.productId, l.priceKobo).then(({ priceKobo, shelfPriceKobo }) => ({ priceKobo, shelfPriceKobo }))),
+        stockQuantity: l.stockQuantity,
+        availability: deriveAvailability(l.status, l.stockQuantity),
+        source: "MANUAL",
+      },
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return { fieldErrors: { sku: "You already use this SKU for another product" }, values };
@@ -188,7 +195,12 @@ export async function quickUpdateListing(_prev: ActionState, formData: FormData)
   const status = listing.availability === "UNAVAILABLE" ? "HIDDEN" : listing.availability === "OUT_OF_STOCK" && listing.stockQuantity === null ? "OUT_OF_STOCK" : "AVAILABLE";
   await db.inventory.update({
     where: { id },
-    data: { ...parsed.data, availability: deriveAvailability(status, parsed.data.stockQuantity), source: "MANUAL" },
+    data: {
+      ...(await listingPrices(db, listing.productId, parsed.data.priceKobo).then(({ priceKobo, shelfPriceKobo }) => ({ priceKobo, shelfPriceKobo }))),
+      stockQuantity: parsed.data.stockQuantity,
+      availability: deriveAvailability(status, parsed.data.stockQuantity),
+      source: "MANUAL",
+    },
   });
   refresh();
   return { ok: "Saved" };

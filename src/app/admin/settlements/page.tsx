@@ -5,8 +5,9 @@ import { unsettledByStore } from "@/lib/settlements";
 import { riderBalances } from "@/lib/rider-payouts";
 import { formatNaira } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
-import { CreateRiderPayoutButton, CreateSettlementButton, MarkPaidForm, MarkRiderPayoutPaidForm } from "@/components/forms/finance-forms";
-import { Badge, Card, EmptyState, Page, PageTitle, SectionTitle } from "@/components/ui";
+import { CreateRiderPayoutButton, CreateSettlementButton, MarkPaidForm, MarkRiderPayoutPaidForm, SendPayoutButton } from "@/components/forms/finance-forms";
+import { payoutProvider } from "@/lib/payouts";
+import { Badge, Card, EmptyState, Notice, Page, PageTitle, SectionTitle } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Settlements" };
 
@@ -14,19 +15,28 @@ const signed = (kobo: number) => (kobo < 0 ? `−${formatNaira(-kobo)}` : format
 
 export default async function AdminSettlements() {
   await requireUser("ADMIN");
-  const [balances, settlements, riders, payouts] = await Promise.all([
+  const provider = payoutProvider();
+  const [balances, settlements, riders, payouts, cash] = await Promise.all([
     unsettledByStore(),
     db.settlement.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], take: 100, include: { supermarket: { select: { name: true } } } }),
     riderBalances(),
     db.riderPayout.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], take: 100, include: { rider: { include: { user: { select: { firstName: true, lastName: true } } } } } }),
+    db.rider.aggregate({ where: { walletBalanceKobo: { lt: 0 } }, _sum: { walletBalanceKobo: true } }),
   ]);
+  const cashHeld = -(cash._sum.walletBalanceKobo ?? 0);
   return (
     <Page>
       <PageTitle
         eyebrow="Admin"
         title="Settlements & payouts"
-        subtitle="Payable = online sales minus commission, minus commission owed on pay-at-store sales. Negative means the supermarket owes SubNet."
+        subtitle="Payable = online and cash-on-delivery sales minus SubNet's share, minus SubNet's share of pay-at-store sales. Negative means the supermarket owes SubNet."
       />
+      <Notice tone={provider ? "green" : "yellow"} title={provider ? `Automatic payouts at 10 PM via ${provider === "MONNIFY" ? "Monnify" : "Paystack"}` : "Automatic payouts are off"}>
+        {provider
+          ? "Every night at 22:00 Lagos time, each store owed money gets one statement and one bank transfer. Failed transfers are retried the next night."
+          : "Set MONNIFY_WALLET_ACCOUNT_NUMBER (with the Monnify keys) or PAYSTACK_SECRET_KEY to send payouts automatically. Until then, statements are created at 10 PM and you pay them by hand."}
+        {cashHeld > 0 && <span className="mt-1 block font-semibold">Riders are holding {formatNaira(cashHeld)} in collected cash.</span>}
+      </Notice>
       <Card>
         <SectionTitle>Waiting to be settled</SectionTitle>
         {balances.length === 0 ? (
@@ -78,7 +88,19 @@ export default async function AdminSettlements() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-extrabold tabular-nums">{signed(s.payableKobo)}</span>
-                  {s.status === "PAID" ? <Badge tone="green">Paid · {s.transferReference}</Badge> : <MarkPaidForm settlementId={s.id} />}
+                  {s.status === "PAID" ? (
+                    <Badge tone="green">Paid · {s.transferReference}</Badge>
+                  ) : s.status === "PROCESSING" ? (
+                    <Badge tone="blue">Transfer sent · {s.payoutReference}</Badge>
+                  ) : (
+                    <div className="space-y-1">
+                      {s.payoutError && <p className="text-xs text-red-700">{s.payoutError}</p>}
+                      <div className="flex flex-wrap items-start gap-2">
+                        {provider && s.payableKobo > 0 && <SendPayoutButton settlementId={s.id} retry={s.status === "FAILED"} />}
+                        <MarkPaidForm settlementId={s.id} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </li>
             ))}

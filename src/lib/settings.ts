@@ -10,6 +10,16 @@ export const SETTING_DEFAULTS = {
   /** Naira per km of road distance. */
   deliveryPerKm: "150",
   deliveryMaxKm: "20",
+  /** Markup on stores' shelf prices for categories without their own. */
+  defaultMarkupPercent: "14",
+  /** Payment gateway fee, used to show the break-even markup. */
+  gatewayFeePercent: "2",
+  /** Naira of unremitted cash a rider may hold before they're paused. */
+  riderMaxCashDebt: "20000",
+  /** "1" to offer cash on delivery. */
+  cashOnDeliveryEnabled: "1",
+  /** Largest order (naira, incl. delivery) that can be paid in cash. */
+  cashOnDeliveryMaxOrder: "50000",
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;

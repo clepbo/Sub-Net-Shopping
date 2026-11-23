@@ -120,6 +120,11 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
             </>
           ) : returning ? null : (
             <>
+              {o.paymentMethod === "CASH_ON_DELIVERY" && (
+                <Notice tone="yellow" title={`Collect ${formatNaira(o.totalKobo)} in cash`}>
+                  Take the cash before asking for the PIN. It&apos;s added to your cash wallet to pay in.
+                </Notice>
+              )}
               <DeliveredForm assignmentId={a.id} />
               <FailedDeliveryForm assignmentId={a.id} customerPhone={o.deliveryPhone} />
             </>

@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/tick",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/tick?run=payouts",
+      "schedule": "0 21 * * *"
     }
   ]
 }

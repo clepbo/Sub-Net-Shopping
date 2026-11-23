@@ -114,11 +114,16 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
                     ? order.paymentStatus === "REFUNDED"
                       ? "Paid online · refunded"
                       : "Paid online"
-                    : order.paymentStatus === "PAID"
-                      ? "Paid at store"
-                      : `Collect ${formatNaira(order.totalKobo)} at pickup`,
+                    : order.paymentMethod === "CASH_ON_DELIVERY"
+                      ? order.paymentStatus === "PAID"
+                        ? "Cash collected by the rider (paid to you at 10 PM settlement)"
+                        : "Cash on delivery: the rider collects it"
+                      : order.paymentStatus === "PAID"
+                        ? "Paid at store"
+                        : `Collect ${formatNaira(order.totalKobo)} at pickup`,
                 ],
-                ["Commission", `${formatNaira(order.commissionKobo)} (${order.commissionPercent}%)`],
+                ["SubNet's share", `${formatNaira(order.commissionKobo)} (${order.commissionPercent}%)`],
+                ["You receive", formatNaira(order.subtotalKobo - order.commissionKobo)],
               ]}
             />
           </Card>

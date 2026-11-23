@@ -8,6 +8,9 @@ describe.skipIf(!enabled)("catalogue (database)", async () => {
   const { db } = await import("../db");
   const { browseProducts, getProductWithOffers } = await import("../catalog");
   const { upsertListing } = await import("../inventory");
+  const { customerPrice } = await import("../pricing-math");
+  // Listings go in at shelf price; customers see them marked up (groceries: 12%).
+  const shown = (shelf: number) => customerPrice(shelf, 12);
 
   const tag = `t${Date.now()}`;
   const ids = { owner: "", a: "", b: "", pending: "" };
@@ -55,7 +58,7 @@ describe.skipIf(!enabled)("catalogue (database)", async () => {
   it("groups a product across stores and ignores unapproved stores", async () => {
     const { items, total } = await browseProducts({ q: `${tag} rice` });
     expect(total).toBe(1);
-    expect(items[0]).toMatchObject({ minPriceKobo: 850_000, maxPriceKobo: 900_000, offers: 2, inStockOffers: 1 });
+    expect(items[0]).toMatchObject({ minPriceKobo: shown(850_000), maxPriceKobo: shown(900_000), offers: 2, inStockOffers: 1 });
   });
 
   it("searches every word across name and brand", async () => {
@@ -66,9 +69,9 @@ describe.skipIf(!enabled)("catalogue (database)", async () => {
 
   it("sorts by price and filters by store and stock", async () => {
     const asc = await browseProducts({ q: tag, sort: "price_asc" });
-    expect(asc.items.map((p) => p.minPriceKobo)).toEqual([60_000, 120_000, 850_000]);
+    expect(asc.items.map((p) => p.minPriceKobo)).toEqual([60_000, 120_000, 850_000].map(shown));
     const desc = await browseProducts({ q: tag, sort: "price_desc" });
-    expect(desc.items[0].minPriceKobo).toBe(850_000);
+    expect(desc.items[0].minPriceKobo).toBe(shown(850_000));
     expect((await browseProducts({ q: tag, sort: "relevance" })).total).toBe(3);
     expect((await browseProducts({ q: tag, supermarketId: ids.b })).total).toBe(2);
     const inStock = await browseProducts({ q: tag, supermarketId: ids.b, inStockOnly: true });
@@ -84,7 +87,7 @@ describe.skipIf(!enabled)("catalogue (database)", async () => {
   it("lists offers cheapest first, approved stores only", async () => {
     const { items } = await browseProducts({ q: `${tag} rice` });
     const product = await getProductWithOffers(items[0].id);
-    expect(product!.inventory.map((o) => o.priceKobo)).toEqual([850_000, 900_000]);
+    expect(product!.inventory.map((o) => o.priceKobo)).toEqual([850_000, 900_000].map(shown));
   });
 
   it("updates an existing listing by SKU and derives stock status", async () => {
@@ -92,6 +95,6 @@ describe.skipIf(!enabled)("catalogue (database)", async () => {
       upsertListing(tx, ids.a, { sku: "M1", name: `${tag} Peak Milk Tin`, priceKobo: 65_000, stockQuantity: 0 }, "CSV_IMPORT"),
     );
     const listing = await db.inventory.findUniqueOrThrow({ where: { supermarketId_sku: { supermarketId: ids.a, sku: "M1" } } });
-    expect(listing).toMatchObject({ priceKobo: 65_000, availability: "OUT_OF_STOCK", source: "CSV_IMPORT" });
+    expect(listing).toMatchObject({ priceKobo: shown(65_000), shelfPriceKobo: 65_000, availability: "OUT_OF_STOCK", source: "CSV_IMPORT" });
   });
 });

@@ -4,7 +4,8 @@ import { runBackgroundJobs } from "@/lib/jobs";
 export const maxDuration = 300;
 
 /**
- * Expires unpaid orders and sends pickup reminders. Vercel Cron calls it
+ * Expires unpaid orders, sends pickup reminders and (from 22:00 Lagos time,
+ * once a day) pays supermarkets. Vercel Cron calls it
  * (with "Authorization: Bearer $CRON_SECRET"); for reminders on time, also
  * call it every 5 minutes from a free scheduler such as cron-job.org.
  */

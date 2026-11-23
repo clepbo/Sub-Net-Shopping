@@ -9,14 +9,30 @@ import { changeOrderStatus, OrderError } from "./orders";
 import { commissionOn, DELIVERY_FAILURE_LABEL, type DeliveryFailure } from "./order-rules";
 import { getSettings } from "./settings";
 import { queuePush } from "./push";
+import { BLOCKED_MESSAGE, cashJobAllowed, cashLimitKobo } from "./rider-wallet";
 import { Prisma } from "@/generated/prisma/client";
 
-export type RiderContext = { id: string; userId: string; status: string; isOnline: boolean; vehicleType: import("@/generated/prisma/enums").VehicleType; lastLat: number | null; lastLng: number | null };
+export type RiderContext = {
+  id: string;
+  userId: string;
+  status: string;
+  isOnline: boolean;
+  vehicleType: import("@/generated/prisma/enums").VehicleType;
+  lastLat: number | null;
+  lastLng: number | null;
+  walletBalanceKobo: number;
+  cashBlockedAt: Date | null;
+};
 
 function assertCanWork(rider: RiderContext) {
   if (rider.status !== "APPROVED") throw new OrderError("Your rider account isn't approved");
   if (!rider.isOnline) throw new OrderError("Go online to take deliveries");
+  // The spec's "interceptor": no dispatch while holding too much cash.
+  if (rider.cashBlockedAt) throw new OrderError(BLOCKED_MESSAGE);
 }
+
+/** Paid online, or cash to be collected by the rider. */
+const DISPATCHABLE = { OR: [{ paymentStatus: "PAID" as const }, { paymentMethod: "CASH_ON_DELIVERY" as const }] };
 
 /** The rider's current delivery, if any. Riders carry one order at a time. */
 export function activeAssignment(riderId: string) {
@@ -27,10 +43,15 @@ export function activeAssignment(riderId: string) {
   });
 }
 
-/** Paid delivery orders the store has confirmed that no rider has taken and this rider's vehicle can carry. */
+/**
+ * Confirmed delivery orders no rider has taken, that this rider's vehicle can
+ * carry and (for cash orders) that wouldn't take them past their cash limit.
+ */
 export async function availableDeliveries(rider: RiderContext) {
+  if (rider.cashBlockedAt) return [];
+  const limit = await cashLimitKobo();
   const orders = await db.order.findMany({
-    where: { fulfilment: "DELIVERY", status: { in: ["CONFIRMED", "READY_FOR_PICKUP"] }, paymentStatus: "PAID", delivery: null },
+    where: { fulfilment: "DELIVERY", status: { in: ["CONFIRMED", "READY_FOR_PICKUP"] }, ...DISPATCHABLE, delivery: null },
     include: { supermarket: { select: { name: true, address: true, area: true, latitude: true, longitude: true } }, _count: { select: { items: true } } },
     orderBy: { confirmedAt: "asc" },
     take: 50,
@@ -38,6 +59,7 @@ export async function availableDeliveries(rider: RiderContext) {
   const percent = Number((await getSettings()).riderCommissionPercent) || 0;
   return orders
     .filter((o) => canCarry(rider.vehicleType, o.requiredVehicle ?? "MOTORCYCLE"))
+    .filter((o) => o.paymentMethod !== "CASH_ON_DELIVERY" || cashJobAllowed(rider.walletBalanceKobo, o.totalKobo, limit))
     .map((o) => {
       const s = o.supermarket;
       const toStoreKm =
@@ -54,8 +76,12 @@ export async function acceptDelivery(rider: RiderContext, orderId: string) {
   assertCanWork(rider);
   if (await activeAssignment(rider.id)) throw new OrderError("Finish your current delivery first");
   const order = await db.order.findUnique({ where: { id: orderId } });
-  if (!order || order.fulfilment !== "DELIVERY" || order.paymentStatus !== "PAID" || !["CONFIRMED", "READY_FOR_PICKUP"].includes(order.status)) {
+  const payable = order && (order.paymentStatus === "PAID" || order.paymentMethod === "CASH_ON_DELIVERY");
+  if (!order || order.fulfilment !== "DELIVERY" || !payable || !["CONFIRMED", "READY_FOR_PICKUP"].includes(order.status)) {
     throw new OrderError("This delivery is no longer available");
+  }
+  if (order.paymentMethod === "CASH_ON_DELIVERY" && !cashJobAllowed(rider.walletBalanceKobo, order.totalKobo, await cashLimitKobo())) {
+    throw new OrderError("This is a cash order and you're holding too much cash already. Pay some in first.");
   }
   if (!canCarry(rider.vehicleType, order.requiredVehicle ?? "MOTORCYCLE")) throw new OrderError("This delivery needs a bigger vehicle");
   const percent = Number((await getSettings()).riderCommissionPercent) || 0;

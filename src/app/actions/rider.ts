@@ -8,6 +8,7 @@ import type { DeliveryFailure } from "@/lib/order-rules";
 import { OrderError } from "@/lib/orders";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
+import { ensureVirtualAccount } from "@/lib/rider-wallet";
 import { formValues, type ActionState } from "@/lib/action-state";
 import { fieldErrors, vehicleDetails } from "@/lib/validation";
 
@@ -96,4 +97,18 @@ export async function shareLocation(lat: number, lng: number) {
   const { rider } = await requireRider();
   if (rider.status !== "APPROVED" || !rider.isOnline) return;
   await recordLocation(rider, lat, lng);
+}
+
+/** Creates the rider's personal account number for paying in collected cash. */
+export async function getVirtualAccountAction(): Promise<ActionState> {
+  const { rider } = await requireRider();
+  try {
+    const r = await ensureVirtualAccount(rider.id);
+    if (!r?.virtualAccountNumber) return { error: "Account numbers aren't available yet. Pay cash in at the SubNet office for now." };
+  } catch (err) {
+    console.error("virtual account failed", err);
+    return { error: "We couldn't create your account number right now. Please try again later." };
+  }
+  revalidatePath("/rider", "layout");
+  return { ok: "Your account number is ready" };
 }

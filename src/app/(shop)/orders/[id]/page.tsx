@@ -194,9 +194,13 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 : order.paymentStatus === "REFUNDED"
                   ? "Refunded"
                   : "Not paid yet"
-              : order.paymentStatus === "PAID"
-                ? "Paid at the store"
-                : "Pay at the store when you collect"}
+              : order.paymentMethod === "CASH_ON_DELIVERY"
+                ? order.paymentStatus === "PAID"
+                  ? "Paid the rider in cash"
+                  : `Pay the rider ${formatNaira(order.totalKobo)} in cash on delivery`
+                : order.paymentStatus === "PAID"
+                  ? "Paid at the store"
+                  : "Pay at the store when you collect"}
           </p>
           {!isDelivery && s.latitude !== null && s.longitude !== null && (
             <a href={directionsUrl(s.latitude, s.longitude)} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm")}>

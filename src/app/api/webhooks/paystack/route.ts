@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { applyRefundEvent, verifyAndApply } from "@/lib/payments";
 import { validWebhookSignature } from "@/lib/payments/paystack";
+import { applyTransferResult } from "@/lib/payouts";
 
 // Paystack webhook. The signature proves it came from Paystack; charge
 // results are still re-verified through the API before being applied.
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
   try {
     if (event.event === "charge.success" && typeof event.data?.reference === "string") {
       await verifyAndApply(event.data.reference);
+    } else if (event.event?.startsWith("transfer.") && typeof event.data?.reference === "string") {
+      const ok = event.event === "transfer.success";
+      await applyTransferResult(event.data.reference, ok ? "success" : event.event === "transfer.failed" || event.event === "transfer.reversed" ? "failed" : "pending", ok ? null : event.event);
     } else if (event.event?.startsWith("refund.") && event.data) {
       await applyRefundEvent(event.data as Parameters<typeof applyRefundEvent>[0]);
     }

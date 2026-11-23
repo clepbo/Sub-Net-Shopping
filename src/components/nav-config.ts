@@ -17,6 +17,7 @@ import {
   Tags,
   User,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ const BASE_NAV: Record<Exclude<NavRole, "SUPERMARKET_STAFF">, NavItem[]> = {
   RIDER: [
     { href: "/rider", label: "Dashboard", icon: LayoutDashboard, exact: true },
     { href: "/rider/earnings", label: "Earnings", icon: Banknote },
+    { href: "/rider/wallet", label: "Cash", icon: Wallet },
     { href: "/rider/vehicle", label: "Vehicle", icon: Bike },
     { href: "/account", label: "Account", icon: User },
   ],

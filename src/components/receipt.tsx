@@ -65,7 +65,7 @@ export function Receipt({ order }: { order: ReceiptOrder }) {
         <div>
           <dt className="text-xs text-gray-500">Payment</dt>
           <dd>
-            {order.paymentMethod === "ONLINE" ? "Online (Paystack)" : "At the store"}
+            {order.paymentMethod === "ONLINE" ? "Online" : order.paymentMethod === "CASH_ON_DELIVERY" ? "Cash on delivery" : "At the store"}
             {paid?.channel && <span className="block text-xs text-gray-500 capitalize">{paid.channel.replace(/_/g, " ")}</span>}
             {paid && <span className="block font-mono text-xs text-gray-500">Ref {paid.reference}</span>}
           </dd>

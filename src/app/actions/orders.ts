@@ -15,7 +15,8 @@ export async function checkout(_prev: ActionState, formData: FormData): Promise<
   const checkoutKey = String(formData.get("checkoutKey") ?? "");
   if (!/^[0-9a-f-]{36}$/.test(checkoutKey)) return { error: "Please reload the page and try again." };
   const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
-  const paymentMethod = formData.get("paymentMethod") === "ONLINE" ? "ONLINE" : "PAY_AT_STORE";
+  const chosen = formData.get("paymentMethod");
+  const paymentMethod = chosen === "ONLINE" ? "ONLINE" : chosen === "CASH_ON_DELIVERY" ? "CASH_ON_DELIVERY" : "PAY_AT_STORE";
   const fulfilment = formData.get("fulfilment") === "DELIVERY" ? "DELIVERY" : "PICKUP";
   const addressId = String(formData.get("addressId") ?? "") || null;
   const pickupAt = fulfilment === "PICKUP" ? String(formData.get("pickupAt") ?? "") || null : null;
@@ -28,7 +29,7 @@ export async function checkout(_prev: ActionState, formData: FormData): Promise<
     throw err;
   }
   revalidatePath("/", "layout");
-  if (paymentMethod === "PAY_AT_STORE") redirect(`/orders/${orderId}?placed=1`);
+  if (paymentMethod !== "ONLINE") redirect(`/orders/${orderId}?placed=1`);
 
   let payUrl: string;
   try {

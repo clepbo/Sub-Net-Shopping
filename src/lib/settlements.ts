@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "./db";
+import { formatNaira } from "./money";
 import { notifyStoreStaff } from "./order-notify";
 import { computeSettlement } from "./settlement-math";
 import { COMPLETED_STATUSES } from "./order-rules";
@@ -40,7 +41,7 @@ export async function unsettledByStore() {
 }
 
 /** Groups a store's unsettled collected orders into a settlement statement. */
-export async function createSettlement(supermarketId: string, adminId: string) {
+export async function createSettlement(supermarketId: string, adminId: string | null) {
   return db.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "Order" WHERE "supermarketId" = ${supermarketId} AND "status" IN ('COLLECTED', 'DELIVERED') AND "settlementId" IS NULL FOR UPDATE`;
@@ -52,18 +53,25 @@ export async function createSettlement(supermarketId: string, adminId: string) {
     const totals = computeSettlement(orders);
     const settlement = await tx.settlement.create({ data: { supermarketId, createdById: adminId, ...totals } });
     await tx.order.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data: { settlementId: settlement.id } });
-    await notifyStoreStaff(tx, supermarketId, "New settlement statement", `A statement for ${totals.orderCount} completed orders is ready on your Earnings page.`);
+    await notifyStoreStaff(
+      tx,
+      supermarketId,
+      "Today's settlement",
+      totals.payableKobo > 0
+        ? `${totals.orderCount} completed orders: ${formatNaira(totals.payableKobo)} is on its way to your bank account.`
+        : `A statement for ${totals.orderCount} completed orders is ready on your Earnings page.`,
+    );
     return settlement;
   });
 }
 
-export async function markSettlementPaid(settlementId: string, transferReference: string) {
+export async function markSettlementPaid(settlementId: string, transferReference: string, from: ("PENDING" | "PROCESSING" | "FAILED")[] = ["PENDING", "FAILED"]) {
   const s = await db.settlement.update({
-    where: { id: settlementId, status: "PENDING" },
-    data: { status: "PAID", paidAt: new Date(), transferReference },
+    where: { id: settlementId, status: { in: from } },
+    data: { status: "PAID", paidAt: new Date(), transferReference, payoutError: null },
   });
   await db.$transaction((tx) =>
-    notifyStoreStaff(tx, s.supermarketId, "Settlement paid", `Settlement ${s.id.slice(-8).toUpperCase()} was marked paid. Reference: ${transferReference}.`),
+    notifyStoreStaff(tx, s.supermarketId, "Settlement paid", `${formatNaira(s.payableKobo)} for settlement ${s.id.slice(-8).toUpperCase()} has been paid. Reference: ${transferReference}.`),
   );
   return s;
 }

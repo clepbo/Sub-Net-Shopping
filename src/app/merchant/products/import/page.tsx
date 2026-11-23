@@ -17,7 +17,7 @@ export const maxDuration = 300;
 const COLUMNS: [string, string][] = [
   ["sku", "Required. Your product code. Rows with an SKU you already use update that product."],
   ["name", "Required. Product name."],
-  ["price", "Required. Selling price in naira, e.g. 1500 or 1,250.50."],
+  ["price", "Required. Your shelf price in naira, e.g. 1500 or 1,250.50. You receive exactly this; SubNet adds its markup on top for customers."],
   ["stock", "Optional. Quantity in stock; leave blank if you don't track it."],
   ["barcode", "Optional. Matches the product to the same item at other stores."],
   ["category", "Optional. One of the category names below."],

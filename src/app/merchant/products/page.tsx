@@ -129,7 +129,10 @@ export default async function MerchantProducts({ searchParams }: { searchParams:
                         </p>
                         <div className="mt-1 flex items-center gap-2">
                           <Badge tone={AVAILABILITY_TONE[item.availability]}>{AVAILABILITY_LABEL[item.availability]}</Badge>
-                          <span className="text-xs font-bold text-gray-700 md:hidden">{formatNaira(item.priceKobo)}</span>
+                          <span className="text-xs font-bold text-gray-700 md:hidden">
+                            {formatNaira(item.shelfPriceKobo ?? item.priceKobo)}
+                            {item.shelfPriceKobo !== null && <span className="font-normal text-gray-500"> · shows {formatNaira(item.priceKobo)}</span>}
+                          </span>
                         </div>
                       </div>
                     </Link>
@@ -137,7 +140,8 @@ export default async function MerchantProducts({ searchParams }: { searchParams:
                       <QuickEdit
                         inventoryId={item.id}
                         label={item.product.name}
-                        price={koboToNairaInput(item.priceKobo)}
+                        price={koboToNairaInput(item.shelfPriceKobo ?? item.priceKobo)}
+                        customerPrice={item.shelfPriceKobo !== null ? formatNaira(item.priceKobo) : null}
                         stockQuantity={item.stockQuantity?.toString() ?? ""}
                       />
                     )}

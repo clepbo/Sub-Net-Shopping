@@ -16,6 +16,27 @@ This repository implements all five phases of the product requirements document 
 - **Login protection:** 5 wrong passwords for one account (or 30 from one network) in 15 minutes locks sign-in for that account for the rest of the window. Reset requests are limited to 3 an hour per account.
 - **Legal pages:** `/terms`, `/privacy`, `/refunds`. They're a sensible starting point written for Nigeria (NDPA 2023, FCCPA 2018); have a lawyer review them before launch.
 
+## Money: pricing, Monnify, cash on delivery & 10 PM payouts
+
+**Markup pricing.** Supermarkets enter their **shelf price** and receive exactly that. Customers see it marked up (default **14%**, set under *Admin → Settings*), rounded **up** to ₦10 under ₦500, ₦50 under ₦5,000, otherwise ₦100. Categories can have their own markup (*Admin → Categories*). The migration starts staples (groceries, dairy & eggs, bakery, fresh produce) at **12%** and snacks, health & beauty and household at **16%**. Changing a markup reprices every listing at once. SubNet's share of an order is the difference between customer and shelf prices; the settings page shows the break-even markup for your commission and gateway fee (10% + 2% → 13.64%). *Existing listings were converted: their old price became the shelf price.*
+
+**Payments.** Checkout uses **Monnify** when `MONNIFY_API_KEY`, `MONNIFY_SECRET_KEY` and `MONNIFY_CONTRACT_CODE` are set, else Paystack (`PAYMENT_PROVIDER` picks one if both are set). Set the Monnify webhook URL to `https://<your-site>/api/webhooks/monnify` (the spec's `/api/v1/payments/remittance-webhook` works too).
+
+**Cash on delivery.** Delivery orders can be paid in cash to the rider (on by default, up to ₦50,000; both set in *Settings*). When the rider confirms delivery with the customer's PIN:
+
+- their **cash wallet** is debited by the order total;
+- at **₦20,000** owed (also a setting) they're paused: no jobs are offered, accepting is refused, and they get a push notification;
+- cash jobs that would take them past the limit aren't offered.
+
+Each approved rider gets a permanent **Monnify virtual account** (*Rider → Cash*). Transfers into it credit the wallet automatically through the webhook, exactly once, and un-pause them. Admins can record cash paid in by hand on the rider's page.
+
+**10 PM payouts.** Every night from 22:00 Lagos time, each supermarket owed money gets one settlement and **one bank transfer**: its shelf-price share of online and cash orders, minus SubNet's share of pay-at-store sales. Stores add their bank under *Store profile*; the name is checked with the bank. Transfers come from `MONNIFY_WALLET_ACCOUNT_NUMBER`, the master account you fund, so cash still with riders doesn't delay stores. Without Monnify payouts, Paystack transfers are used, and with neither, statements are created for you to pay by hand. Failed transfers are retried the next night, or from *Admin → Settlements*.
+
+- A Vercel cron calls `/api/cron/tick` at 21:00 UTC (22:00 Lagos). Vercel's Hobby plan can fire up to an hour late, so also run the cron-job.org schedule below; the run happens once per day either way.
+- *Paystack transfers need "OTP for transfers" turned off in the Paystack dashboard.*
+
+For local testing, `npm run monnify:mock` runs a fake Monnify (see `.env.example`).
+
 ## Shopping list (find one store with everything)
 
 Shoppers tap **Add to list** on products, then open the list (icon next to the cart, or `/basket`). SubNet ranks supermarkets by distance from the shopper's location or a saved address (by price if neither is set):

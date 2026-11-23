@@ -13,6 +13,7 @@ import http from "node:http";
 export function startMockPaystack({ port = 4010, secret, webhookUrl }) {
   const transactions = new Map();
   const refunds = [];
+  const transfers = [];
   let txId = 1000;
   let refundId = 5000;
   const base = `http://localhost:${port}`;
@@ -73,6 +74,23 @@ export function startMockPaystack({ port = 4010, secret, webhookUrl }) {
       }, 200);
       return json(res, 200, { status: true, message: "Refund has been queued for processing", data: r });
     }
+    // Transfers (payouts).
+    if (req.method === "POST" && url.pathname === "/transferrecipient") {
+      if (!authed) return json(res, 401, { status: false, message: "Invalid key" });
+      return json(res, 201, { status: true, message: "Transfer recipient created", data: { recipient_code: `RCP_${body.account_number}_${body.bank_code}` } });
+    }
+    if (req.method === "POST" && url.pathname === "/transfer") {
+      if (!authed) return json(res, 401, { status: false, message: "Invalid key" });
+      if (transfers.some((t) => t.reference === body.reference)) return json(res, 400, { status: false, message: "Duplicate transfer reference" });
+      const fail = String(body.recipient).includes("0000000000");
+      const t = { reference: body.reference, amount: Number(body.amount), recipient: body.recipient, status: fail ? "failed" : "success", transfer_code: `TRF_${transfers.length + 1}` };
+      transfers.push(t);
+      return json(res, 200, { status: true, message: "Transfer has been queued", data: t });
+    }
+    if (req.method === "GET" && url.pathname === "/bank/resolve") {
+      if (!authed) return json(res, 401, { status: false, message: "Invalid key" });
+      return json(res, 200, { status: true, data: { account_number: url.searchParams.get("account_number"), account_name: "MOCK ACCOUNT HOLDER" } });
+    }
     // Hosted checkout page.
     const page = url.pathname.match(/^\/checkout\/([^/]+)$/);
     if (req.method === "GET" && page) {
@@ -101,11 +119,11 @@ export function startMockPaystack({ port = 4010, secret, webhookUrl }) {
       const t = pay(decodeURIComponent(control[1]), { webhook: url.searchParams.get("webhook") !== "0" });
       return t ? json(res, 200, t) : json(res, 404, {});
     }
-    if (url.pathname === "/__control/state") return json(res, 200, { transactions: [...transactions.values()], refunds });
+    if (url.pathname === "/__control/state") return json(res, 200, { transactions: [...transactions.values()], refunds, transfers });
     json(res, 404, { status: false, message: "Not found" });
   });
 
-  return new Promise((resolve) => server.listen(port, () => resolve({ server, transactions, refunds, pay, close: () => new Promise((r) => server.close(r)) })));
+  return new Promise((resolve) => server.listen(port, () => resolve({ server, transactions, refunds, transfers, pay, close: () => new Promise((r) => server.close(r)) })));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

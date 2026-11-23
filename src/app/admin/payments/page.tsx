@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { paystackConfigured } from "@/lib/payments/paystack";
+import { activeProvider, onlinePaymentsAvailable, PROVIDER_LABEL } from "@/lib/payments/gateway";
 import { formatNaira } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
 import { RetryRefundButton } from "@/components/forms/finance-forms";
@@ -21,10 +21,10 @@ export default async function AdminPayments() {
   ]);
   return (
     <Page>
-      <PageTitle eyebrow="Admin" title="Payments" subtitle="Online payments through Paystack, and refunds." />
-      {!paystackConfigured() && (
-        <Notice tone="yellow" title="Paystack isn't configured">
-          Set PAYSTACK_SECRET_KEY to turn on online payment. Until then customers can only pay at the store.
+      <PageTitle eyebrow="Admin" title="Payments" subtitle={`Online payments${activeProvider() ? ` through ${PROVIDER_LABEL[activeProvider()!]}` : ""}, and refunds.`} />
+      {!onlinePaymentsAvailable() && (
+        <Notice tone="yellow" title="Online payment isn't configured">
+          Set the Monnify keys (MONNIFY_API_KEY, MONNIFY_SECRET_KEY, MONNIFY_CONTRACT_CODE) or PAYSTACK_SECRET_KEY to turn on online payment. Until then customers can only pay at the store or in cash.
         </Notice>
       )}
       {failedRefunds.length > 0 && (

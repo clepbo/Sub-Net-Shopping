@@ -8,6 +8,9 @@ import { computeAvailability } from "./availability";
 import { deliveryBlocker, pickupBlocker } from "./cart";
 import { canCarry, deliveryQuote, VEHICLE_NAME } from "./delivery-rules";
 import { VISIBLE_AVAILABILITY } from "./inventory";
+import { formatNaira } from "./money";
+import { recordCashCollected } from "./rider-wallet";
+import { marginKobo } from "./pricing-math";
 import {
   ACTIVE_STATUSES,
   canAdjustItems,
@@ -28,11 +31,24 @@ import { announceNewOrder, notifyStoreStaff } from "./order-notify";
 import { releaseStock, reserveStock, StockError } from "./stock";
 import { refundOrderBalance } from "./payments";
 import { queuePush } from "./push";
-import { paystackConfigured } from "./payments/paystack";
+import { onlinePaymentsAvailable } from "./payments/gateway";
 import { Prisma } from "@/generated/prisma/client";
 import type { Fulfilment, OrderStatus, PaymentMethod, VehicleType } from "@/generated/prisma/enums";
 
 type Tx = Prisma.TransactionClient;
+
+/**
+ * SubNet's share of an order's product sales. Items priced by markup carry
+ * their shelf price, and SubNet keeps the difference; older listings without
+ * one fall back to the commission percentage.
+ */
+export function orderCommission(items: { unitPriceKobo: number; shelfPriceKobo: number | null; quantity: number }[], subtotalKobo: number, commissionPercent: number) {
+  if (items.length > 0 && items.every((i) => i.shelfPriceKobo !== null)) {
+    const kobo = marginKobo(items);
+    return { kobo, percent: subtotalKobo > 0 ? Math.round((kobo / subtotalKobo) * 10_000) / 100 : 0 };
+  }
+  return { kobo: commissionOn(subtotalKobo, commissionPercent), percent: commissionPercent };
+}
 
 export class OrderError extends Error {}
 
@@ -71,9 +87,9 @@ export async function placeOrder(opts: {
     if (existing.customerId !== customerId) throw new OrderError("This checkout has expired. Please try again.");
     return existing.id;
   }
-  if (paymentMethod === "ONLINE" && !paystackConfigured()) throw new OrderError("Online payment isn't available right now. Choose pay at the store.");
-  // Riders don't handle cash yet (PRD §17), so deliveries are paid online.
-  if (fulfilment === "DELIVERY" && paymentMethod !== "ONLINE") throw new OrderError("Delivery orders are paid online.");
+  if (paymentMethod === "ONLINE" && !onlinePaymentsAvailable()) throw new OrderError("Online payment isn't available right now. Choose pay at the store.");
+  if (fulfilment === "DELIVERY" && paymentMethod === "PAY_AT_STORE") throw new OrderError("Delivery orders are paid online or in cash to the rider.");
+  if (fulfilment === "PICKUP" && paymentMethod === "CASH_ON_DELIVERY") throw new OrderError("Cash on delivery is only for delivery orders.");
 
   const store = await db.supermarket.findUnique({ where: { id: supermarketId }, include: { hours: true } });
   if (!store || store.status !== "APPROVED") throw new OrderError("This supermarket isn't available on SubNet right now.");
@@ -110,6 +126,7 @@ export async function placeOrder(opts: {
     unit: l.inventory.product.unit,
     sku: l.inventory.sku,
     unitPriceKobo: l.inventory.priceKobo,
+    shelfPriceKobo: l.inventory.shelfPriceKobo,
     requestedQuantity: l.quantity,
     quantity: l.quantity,
     lineTotalKobo: l.inventory.priceKobo * l.quantity,
@@ -144,7 +161,15 @@ export async function placeOrder(opts: {
     };
   }
   const totals = orderTotals(items, deliveryFeeKobo);
-  const commissionPercent = Number((await getSettings()).supermarketCommissionPercent) || 0;
+  const settings = await getSettings();
+  if (paymentMethod === "CASH_ON_DELIVERY") {
+    if (settings.cashOnDeliveryEnabled !== "1") throw new OrderError("Cash on delivery isn't available right now. Please pay online.");
+    const maxKobo = Math.round(Number(settings.cashOnDeliveryMaxOrder) * 100);
+    if (maxKobo > 0 && totals.totalKobo > maxKobo) {
+      throw new OrderError(`Orders over ${formatNaira(maxKobo)} must be paid online.`);
+    }
+  }
+  const commission = orderCommission(items, totals.subtotalKobo, Number(settings.supermarketCommissionPercent) || 0);
 
   let number = newOrderNumber();
   while (await db.order.findUnique({ where: { number }, select: { id: true } })) number = newOrderNumber();
@@ -170,27 +195,34 @@ export async function placeOrder(opts: {
           // No reminder needed when the pickup is less than the reminder lead time away.
           pickupReminderSentAt: pickupAt && pickupAt.getTime() - now.getTime() <= REMINDER_LEAD_MINUTES * 60_000 ? now : null,
           ...totals,
-          commissionPercent,
-          commissionKobo: commissionOn(totals.subtotalKobo, commissionPercent),
+          commissionPercent: commission.percent,
+          commissionKobo: commission.kobo,
           ...(await pickupCredentials(tx, supermarketId)),
           items: { create: items.map((item, i) => ({ ...item, stockReserved: reserved[i] })) },
           events: { create: { status, actorId: customerId } },
         },
       });
       await tx.cartItem.deleteMany({ where: { userId: customerId, inventory: { supermarketId } } });
-      if (paymentMethod === "PAY_AT_STORE") {
+      if (paymentMethod !== "ONLINE") {
         await tx.notification.create({
           data: {
             userId: customerId,
             title: `Order ${number} placed`,
-            body: `${store.name} will confirm your order shortly. Pick up ${pickupAt ? describePickupTime(pickupAt, now) : "when it's ready"} and pay at the store.`,
+            body:
+              paymentMethod === "CASH_ON_DELIVERY"
+                ? `${store.name} will confirm your order shortly. Have ${formatNaira(totals.totalKobo)} ready to pay the rider in cash.`
+                : `${store.name} will confirm your order shortly. Pick up ${pickupAt ? describePickupTime(pickupAt, now) : "when it's ready"} and pay at the store.`,
           },
         });
         staffToPush = await announceNewOrder(tx, order, items.length);
       }
       return order.id;
     });
-    queuePush(staffToPush, { title: `New order ${number}`, body: "A new pickup order is waiting. Confirm it from your Orders page.", url: `/merchant/orders/${id}` });
+    queuePush(staffToPush, {
+      title: `New order ${number}`,
+      body: fulfilment === "DELIVERY" ? "A new cash-on-delivery order is waiting. Confirm it from your Orders page." : "A new pickup order is waiting. Confirm it from your Orders page.",
+      url: `/merchant/orders/${id}`,
+    });
     return id;
   } catch (err) {
     if (err instanceof StockError) throw new OrderError(err.message);
@@ -244,6 +276,7 @@ export async function changeOrderStatus(opts: {
   if (to === "CANCELLED" && actor !== "CUSTOMER" && !opts.reason) throw new OrderError("Give the customer a reason for cancelling");
   if (to === "DELIVERY_FAILED" && !opts.failure) throw new OrderError("Say why the delivery couldn't be completed");
   let refundKobo: number | undefined;
+  const afterCommit: (() => void)[] = [];
 
   let ridersToPush: string[] = [];
   const order = await db.$transaction(async (tx) => {
@@ -257,7 +290,7 @@ export async function changeOrderStatus(opts: {
       for (const item of order.items) if (item.stockReserved) await releaseStock(tx, item.inventoryId, item.quantity);
     }
     const stamp = TIMESTAMP[to];
-    const paidNow = to === "COLLECTED" && order.paymentMethod === "PAY_AT_STORE";
+    const paidNow = (to === "COLLECTED" && order.paymentMethod === "PAY_AT_STORE") || (to === "DELIVERED" && order.paymentMethod === "CASH_ON_DELIVERY");
     await tx.order.update({
       where: { id: orderId },
       data: {
@@ -285,7 +318,9 @@ export async function changeOrderStatus(opts: {
           : to === "OUT_FOR_DELIVERY"
             ? "Rider picked up the order"
             : to === "DELIVERED"
-              ? "Delivered · customer PIN verified"
+              ? order.paymentMethod === "CASH_ON_DELIVERY"
+                ? "Delivered · customer PIN verified · cash collected by the rider"
+                : "Delivered · customer PIN verified"
               : to === "DELIVERY_FAILED"
                 ? `Delivery failed: ${DELIVERY_FAILURE_LABEL[opts.failure!.reason]}${opts.failure!.note ? ` (${opts.failure!.note})` : ""}. Rider returning the order to the store.`
                 : returned
@@ -325,7 +360,9 @@ export async function changeOrderStatus(opts: {
     }
     if (to === "DELIVERED") {
       // Earnings become payable only once the delivery is completed (PRD §16).
-      await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "DELIVERED", deliveredAt: new Date(), earningStatus: "ELIGIBLE" } });
+      const a = await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "DELIVERED", deliveredAt: new Date(), earningStatus: "ELIGIBLE" } });
+      // Cash on delivery: the rider now holds the money and owes it to SubNet.
+      if (order.paymentMethod === "CASH_ON_DELIVERY") afterCommit.push(await recordCashCollected(tx, order, a.riderId));
     }
 
     if (actor === "STORE" || actor === "RIDER") {
@@ -352,6 +389,7 @@ export async function changeOrderStatus(opts: {
   if (to === "CANCELLED" && order.paymentStatus === "PAID" && order.paymentMethod === "ONLINE") {
     await refundOrderBalance(orderId, `Order ${order.number} cancelled`, refundKobo);
   }
+  afterCommit.forEach((fn) => fn());
   queuePush(ridersToPush, { title: `New delivery ${order.number}`, body: "Open your dashboard to accept it.", url: "/rider" });
   const pushText: Partial<Record<OrderStatus, string>> = {
     READY_FOR_PICKUP: order.fulfilment === "DELIVERY" ? "" : "Your order is ready. Show your QR code or PIN at the pickup point.",
@@ -367,7 +405,8 @@ export async function changeOrderStatus(opts: {
 async function notifyRidersOfJob(tx: Tx, order: { number: string; requiredVehicle: VehicleType | null }) {
   const required = order.requiredVehicle ?? "MOTORCYCLE";
   const riders = await tx.rider.findMany({
-    where: { status: "APPROVED", isOnline: true, user: { status: "ACTIVE" } },
+    // Riders paused for unremitted cash aren't offered new jobs.
+    where: { status: "APPROVED", isOnline: true, cashBlockedAt: null, user: { status: "ACTIVE" } },
     select: { userId: true, vehicleType: true },
   });
   const eligible = riders.filter((r) => canCarry(r.vehicleType, required));
@@ -416,7 +455,7 @@ export async function adjustOrderItem(opts: { supermarketId: string; orderItemId
     const totals = orderTotals(items, order.deliveryFeeKobo);
     await tx.order.update({
       where: { id: order.id },
-      data: { ...totals, commissionKobo: commissionOn(totals.subtotalKobo, order.commissionPercent) },
+      data: { ...totals, commissionKobo: orderCommission(items, totals.subtotalKobo, order.commissionPercent).kobo },
     });
     const note = opts.quantity === 0 ? `Removed ${item.name} (unavailable)` : `${item.name}: ${item.quantity} → ${opts.quantity}`;
     await tx.orderEvent.create({ data: { orderId: order.id, status: order.status, actorId: opts.actorId, note } });

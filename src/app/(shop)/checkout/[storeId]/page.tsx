@@ -8,8 +8,8 @@ import { getCart } from "@/lib/cart";
 import { formatNaira } from "@/lib/money";
 import { db } from "@/lib/db";
 import { deliveryQuote, VEHICLE_NAME } from "@/lib/delivery-rules";
-import { paystackConfigured } from "@/lib/payments/paystack";
-import { deliveryRates } from "@/lib/settings";
+import { onlinePaymentsAvailable } from "@/lib/payments/gateway";
+import { deliveryRates, getSettings } from "@/lib/settings";
 import { pickupSlots } from "@/lib/pickup-slots";
 import { CheckoutForm } from "@/components/forms/cart-forms";
 import { Card, Notice, Page, PageTitle, SectionTitle } from "@/components/ui";
@@ -22,10 +22,11 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
   const group = (await getCart(user.id)).find((g) => g.supermarket.id === storeId);
   if (!group) redirect("/cart");
   const s = group.supermarket;
-  const [addresses, rates, store] = await Promise.all([
+  const [addresses, rates, store, settings] = await Promise.all([
     db.customerAddress.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
     deliveryRates(),
     db.supermarket.findUniqueOrThrow({ where: { id: storeId }, include: { hours: true } }),
+    getSettings(),
   ]);
   const pickupDays = pickupSlots(store);
   const items = group.lines.map((l) => ({ isBulky: l.isBulky, quantity: l.quantity }));
@@ -100,13 +101,14 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
             supermarketId={s.id}
             checkoutKey={randomUUID()}
             subtotalKobo={group.subtotalKobo}
-            onlineAvailable={paystackConfigured()}
+            onlineAvailable={onlinePaymentsAvailable()}
             pickupBlocker={group.pickupBlocker ?? (group.lines.some((l) => l.issue) ? "Fix the items in your cart first." : null)}
             deliveryBlocker={group.deliveryBlocker ?? (group.lines.some((l) => l.issue) ? "Fix the items in your cart first." : null)}
             deliveryOptions={deliveryOptions}
             addAddressHref={`/account/addresses/new?next=${encodeURIComponent(`/checkout/${s.id}`)}`}
             pickupDays={pickupDays}
             prepMinutes={store.pickupPrepMinutes}
+            cashOnDelivery={{ enabled: settings.cashOnDeliveryEnabled === "1", maxKobo: Math.round(Number(settings.cashOnDeliveryMaxOrder) * 100) }}
           />
           <p className="text-xs text-gray-500">Prices and stock are confirmed when you place the order.</p>
         </Card>

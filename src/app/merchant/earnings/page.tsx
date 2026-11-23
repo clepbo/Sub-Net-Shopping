@@ -4,7 +4,8 @@ import { requireMerchantStore } from "@/lib/supermarkets";
 import { unsettledSummary } from "@/lib/settlements";
 import { formatNaira } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
-import { Badge, Card, EmptyState, Page, PageTitle, SectionTitle, StatTile } from "@/components/ui";
+import Link from "next/link";
+import { Badge, Card, EmptyState, Notice, Page, PageTitle, SectionTitle, StatTile } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Earnings" };
 
@@ -19,14 +20,26 @@ export default async function EarningsPage() {
       <PageTitle
         eyebrow="Merchant"
         title="Earnings"
-        subtitle="Collected orders not yet settled. SubNet holds online payments and pays them out minus commission; commission on pay-at-store sales is deducted from the payout."
+        subtitle="Your wallet: completed orders not yet paid out. You receive your shelf price for every item sold online or by cash on delivery; SubNet's share of pay-at-store sales is deducted."
       />
+      {!store.bankAccountNumber ? (
+        <Notice tone="yellow" title="Add your bank account to get paid">
+          <Link href="/merchant/profile#bank" className="font-bold underline">
+            Add bank details
+          </Link>{" "}
+          so tonight&apos;s payout can be sent.
+        </Notice>
+      ) : (
+        <p className="rounded-2xl bg-brand-50 p-3 text-sm text-brand-900">
+          Paid automatically every night at <span className="font-bold">10 PM</span> to {store.bankName} ••••{store.bankAccountNumber.slice(-4)} ({store.bankAccountName}).
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <StatTile label="Collected sales" value={formatNaira(summary.grossKobo)} hint={`${summary.orderCount} orders`} />
-        <StatTile label="Commission" value={formatNaira(summary.commissionKobo)} tone="yellow" />
-        <StatTile label="Online, after commission" value={formatNaira(summary.onlineNetKobo)} tone="blue" />
+        <StatTile label="Sales" value={formatNaira(summary.grossKobo)} hint={`${summary.orderCount} orders`} />
+        <StatTile label="SubNet's share" value={formatNaira(summary.commissionKobo)} tone="yellow" />
+        <StatTile label="Online & cash, your share" value={formatNaira(summary.onlineNetKobo)} tone="blue" />
         <StatTile
-          label={summary.payableKobo >= 0 ? "Next payout" : "You owe SubNet"}
+          label={summary.payableKobo >= 0 ? "Pending: paid at 10 PM" : "You owe SubNet"}
           value={formatNaira(Math.abs(summary.payableKobo))}
           tone={summary.payableKobo >= 0 ? "green" : "red"}
         />
@@ -57,7 +70,9 @@ export default async function EarningsPage() {
                     <td className="py-2 text-right tabular-nums">{formatNaira(s.commissionKobo)}</td>
                     <td className="py-2 text-right font-bold tabular-nums">{s.payableKobo < 0 ? `−${formatNaira(-s.payableKobo)}` : formatNaira(s.payableKobo)}</td>
                     <td className="py-2 pl-3">
-                      <Badge tone={s.status === "PAID" ? "green" : "yellow"}>{s.status === "PAID" ? `Paid · ${s.transferReference}` : "Pending"}</Badge>
+                      <Badge tone={s.status === "PAID" ? "green" : s.status === "FAILED" ? "red" : "yellow"}>
+                        {s.status === "PAID" ? `Paid · ${s.transferReference}` : s.status === "PROCESSING" ? "Transfer sent" : s.status === "FAILED" ? "Transfer failed, retrying" : "Pending"}
+                      </Badge>
                     </td>
                   </tr>
                 ))}

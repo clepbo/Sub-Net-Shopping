@@ -1,10 +1,13 @@
 "use server";
 
+import { repriceAll } from "@/lib/pricing";
+import { ensureVirtualAccount } from "@/lib/rider-wallet";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { logActivity, notify } from "@/lib/activity";
-import { saveSettings } from "@/lib/settings";
+import { getSettings, saveSettings } from "@/lib/settings";
 import { formValues, type ActionState } from "@/lib/action-state";
 import { fieldErrors, platformSettings } from "@/lib/validation";
 
@@ -81,6 +84,8 @@ export async function decideRider(_prev: ActionState, formData: FormData): Promi
     `Your rider account was ${verb}`,
     decision === "APPROVED" ? "You can now go online to receive deliveries." : `Reason: ${reason}`,
   );
+  // Each approved rider gets a permanent account number for paying in cash (spec §2C).
+  if (decision === "APPROVED") after(() => ensureVirtualAccount(id).catch((err) => console.error("virtual account failed", err)));
   revalidatePath("/admin", "layout");
   return { ok: `${name} ${verb}` };
 }
@@ -112,6 +117,7 @@ export async function updatePlatformSettings(_prev: ActionState, formData: FormD
   const values = formValues(formData);
   const parsed = platformSettings.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
+  const before = await getSettings();
   await saveSettings(
     Object.fromEntries(Object.entries(parsed.data).map(([k, v]) => [k, String(v)])),
     admin.id,
@@ -119,8 +125,10 @@ export async function updatePlatformSettings(_prev: ActionState, formData: FormD
   await logActivity({
     actorId: admin.id,
     action: "settings.updated",
-    details: `supermarket ${parsed.data.supermarketCommissionPercent}%, rider ${parsed.data.riderCommissionPercent}%, delivery ₦${parsed.data.deliveryBaseFee} + ₦${parsed.data.deliveryPerKm}/km up to ${parsed.data.deliveryMaxKm} km`,
+    details: `markup ${parsed.data.defaultMarkupPercent}%, supermarket ${parsed.data.supermarketCommissionPercent}%, rider ${parsed.data.riderCommissionPercent}%, delivery ₦${parsed.data.deliveryBaseFee} + ₦${parsed.data.deliveryPerKm}/km up to ${parsed.data.deliveryMaxKm} km, rider cash limit ₦${parsed.data.riderMaxCashDebt}, cash on delivery ${parsed.data.cashOnDeliveryEnabled === "1" ? `on up to ₦${parsed.data.cashOnDeliveryMaxOrder}` : "off"}`,
   });
-  revalidatePath("/admin/settings");
-  return { ok: "Settings saved", values };
+  // A new default markup changes what customers pay for everything without its own category markup.
+  const repriced = Number(before.defaultMarkupPercent) !== parsed.data.defaultMarkupPercent ? await repriceAll() : 0;
+  revalidatePath("/", "layout");
+  return { ok: repriced ? `Settings saved · ${repriced} prices updated` : "Settings saved", values };
 }

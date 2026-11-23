@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { deleteCategory, saveCategory } from "@/app/actions/categories";
 import { Field, FormMessage, Select, SubmitButton } from "../form";
 
-type Category = { id: string; name: string; icon: string | null; sortOrder: number; parentId: string | null };
+type Category = { id: string; name: string; icon: string | null; sortOrder: number; parentId: string | null; markupPercent: number | null };
 
 export function CategoryForm({ category, parents }: { category?: Category; parents: { value: string; label: string }[] }) {
   const [state, action] = useActionState(saveCategory, {});
@@ -17,7 +17,7 @@ export function CategoryForm({ category, parents }: { category?: Category; paren
         <Field label="Name" name="name" defaultValue={category?.name} state={state} />
         <Field label="Icon" name="icon" defaultValue={category?.icon ?? ""} placeholder="🛒" state={state} />
       </div>
-      <div className="grid grid-cols-[1fr_6rem] gap-3">
+      <div className="grid grid-cols-[1fr_6rem_6rem] gap-3">
         <Select
           label="Parent"
           name="parentId"
@@ -26,6 +26,7 @@ export function CategoryForm({ category, parents }: { category?: Category; paren
           state={state}
         />
         <Field label="Order" name="sortOrder" inputMode="numeric" defaultValue={String(category?.sortOrder ?? 0)} state={state} />
+        <Field label="Markup %" name="markupPercent" inputMode="decimal" placeholder="Default" defaultValue={category?.markupPercent?.toString() ?? ""} state={state} />
       </div>
       <SubmitButton size="sm" variant={category ? "secondary" : "primary"}>
         {category ? "Save" : "Add category"}

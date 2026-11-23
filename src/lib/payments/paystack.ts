@@ -78,3 +78,30 @@ export function validWebhookSignature(rawBody: string, signature: string | null)
   const b = Buffer.from(signature, "utf8");
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+// ─── Transfers (payouts) ───────────────────────────────────────────────
+
+export function createTransferRecipient(input: { name: string; accountNumber: string; bankCode: string }) {
+  return call<{ recipient_code: string }>("POST", "/transferrecipient", {
+    type: "nuban",
+    name: input.name,
+    account_number: input.accountNumber,
+    bank_code: input.bankCode,
+    currency: "NGN",
+  });
+}
+
+export function initiateTransfer(input: { amountKobo: number; recipient: string; reference: string; reason: string }) {
+  return call<{ status: "success" | "pending" | "otp" | "failed" | "reversed" | "received" | "abandoned" | "blocked" | "rejected"; reference: string; transfer_code: string }>(
+    "POST",
+    "/transfer",
+    { source: "balance", amount: input.amountKobo, recipient: input.recipient, reference: input.reference, reason: input.reason.slice(0, 100), currency: "NGN" },
+  );
+}
+
+export function resolveAccount(accountNumber: string, bankCode: string) {
+  return call<{ account_number: string; account_name: string }>(
+    "GET",
+    `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+  );
+}

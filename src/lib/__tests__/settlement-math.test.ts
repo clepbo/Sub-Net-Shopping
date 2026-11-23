@@ -33,3 +33,11 @@ describe("computeSettlement with delivery", () => {
     expect(s).toMatchObject({ grossKobo: 1_000_000, onlineNetKobo: 900_000, payableKobo: 900_000 });
   });
 });
+
+describe("cash on delivery in settlements", () => {
+  it("treats cash-on-delivery like online: SubNet owes the store its share", async () => {
+    const { computeSettlement } = await import("../settlement-math");
+    const r = computeSettlement([{ totalKobo: 11_500 + 1_000, deliveryFeeKobo: 1_000, commissionKobo: 1_500, paymentMethod: "CASH_ON_DELIVERY" }]);
+    expect(r.payableKobo).toBe(10_000);
+  });
+});

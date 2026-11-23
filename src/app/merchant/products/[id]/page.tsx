@@ -1,3 +1,4 @@
+import { formatNaira } from "@/lib/money";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -62,13 +63,19 @@ export default async function EditProductPage({
                 inventoryId={listing.id}
                 defaults={{
                   sku: listing.sku,
-                  price: koboToNairaInput(listing.priceKobo),
+                  price: koboToNairaInput(listing.shelfPriceKobo ?? listing.priceKobo),
                   stockQuantity: listing.stockQuantity?.toString() ?? "",
                   status: listingStatusOf(listing.availability),
                 }}
               />
             ) : (
               <p className="text-sm text-gray-500">This supermarket is suspended.</p>
+            )}
+            {listing.shelfPriceKobo !== null && (
+              <p className="mt-3 rounded-xl bg-brand-50 p-3 text-sm text-brand-900">
+                Customers see <span className="font-extrabold">{formatNaira(listing.priceKobo)}</span>. You receive your shelf price,{" "}
+                <span className="font-bold">{formatNaira(listing.shelfPriceKobo)}</span>, for each one sold.
+              </p>
             )}
             <p className="mt-3 text-xs text-gray-500">
               Last updated {formatDateTime(listing.updatedAt)} · {SOURCE_LABEL[listing.source]}

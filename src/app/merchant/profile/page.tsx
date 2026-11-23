@@ -3,6 +3,7 @@ import { requireMerchantStore } from "@/lib/supermarkets";
 import { StoreLogo } from "@/components/store-logo";
 import { LogoForm, PosForm, StoreProfileForm } from "@/components/forms/merchant-forms";
 import { Card, Page, PageTitle, SectionTitle } from "@/components/ui";
+import { BankDetailsForm } from "@/components/forms/bank-forms";
 
 export const metadata: Metadata = { title: "Store profile" };
 
@@ -24,6 +25,12 @@ export default async function MerchantProfilePage() {
       <Card>
         <SectionTitle>Details</SectionTitle>
         <StoreProfileForm store={store} disabled={disabled} />
+      </Card>
+      <Card>
+        <div id="bank" className="scroll-mt-32" />
+        <SectionTitle>Payout bank account</SectionTitle>
+        <p className="mb-4 text-sm text-gray-600">Each night at 10 PM, SubNet sends the day&apos;s earnings here in one transfer.</p>
+        <BankDetailsForm who="store" bank={store} disabled={disabled} />
       </Card>
       <Card>
         <div id="pos" className="scroll-mt-32" />

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
+import { repriceAll } from "@/lib/pricing";
 import { formValues, type ActionState } from "@/lib/action-state";
 import { categoryFields, fieldErrors } from "@/lib/validation";
 import { Prisma } from "@/generated/prisma/client";
@@ -42,6 +43,7 @@ export async function saveCategory(_prev: ActionState, formData: FormData): Prom
   const slug = slugify(d.name);
   if (!slug) return { fieldErrors: { name: "Use letters or numbers in the name" }, values };
 
+  const before = id ? await db.category.findUnique({ where: { id }, select: { markupPercent: true } }) : null;
   try {
     if (id) await db.category.update({ where: { id }, data: { ...d, slug } });
     else await db.category.create({ data: { ...d, slug } });
@@ -52,6 +54,8 @@ export async function saveCategory(_prev: ActionState, formData: FormData): Prom
     throw err;
   }
   await logActivity({ actorId: admin.id, action: id ? "category.updated" : "category.created", targetType: "category", details: d.name });
+  // A changed markup changes what customers pay for everything in the category.
+  if (id && before && before.markupPercent !== d.markupPercent) await repriceAll();
   refresh();
   return id ? { ok: "Category saved", values } : { ok: `Added “${d.name}”` };
 }

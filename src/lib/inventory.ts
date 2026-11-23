@@ -59,6 +59,8 @@ export async function upsertListing(
   supermarketId: string,
   item: ImportItem,
   source: InventorySource,
+  /** Platform default markup, passed in by bulk imports to avoid re-reading settings per row. */
+  markupPercent?: number,
 ): Promise<"created" | "updated"> {
   const existing = await tx.inventory.findUnique({
     where: { supermarketId_sku: { supermarketId, sku: item.sku } },
@@ -110,8 +112,13 @@ export async function upsertListing(
 
   // Keep a merchant's "hidden" choice; otherwise derive from stock.
   const status: ListingStatus = existing?.availability === "UNAVAILABLE" ? "HIDDEN" : "AVAILABLE";
+  // Imports give the store's shelf price; customers see it marked up.
+  // Loaded lazily so this file's pure helpers stay importable without a database.
+  const { listingPrices } = await import("./pricing");
+  const { priceKobo, shelfPriceKobo } = await listingPrices(tx, productId, item.priceKobo, markupPercent);
   const data = {
-    priceKobo: item.priceKobo,
+    priceKobo,
+    shelfPriceKobo,
     stockQuantity: item.stockQuantity,
     availability: deriveAvailability(status, item.stockQuantity),
     source,

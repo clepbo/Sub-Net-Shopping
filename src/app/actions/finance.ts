@@ -6,7 +6,10 @@ import { logActivity } from "@/lib/activity";
 import { retryRefund } from "@/lib/payments";
 import { createSettlement, markSettlementPaid } from "@/lib/settlements";
 import { createRiderPayout, markRiderPayoutPaid } from "@/lib/rider-payouts";
-import type { ActionState } from "@/lib/action-state";
+import { formValues, type ActionState } from "@/lib/action-state";
+import { creditRemittance } from "@/lib/rider-wallet";
+import { sendSettlementPayout } from "@/lib/payouts";
+import { parseNairaToKobo } from "@/lib/inventory";
 
 export async function createSettlementAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireUser("ADMIN");
@@ -62,4 +65,44 @@ export async function markRiderPayoutPaidAction(_prev: ActionState, formData: Fo
   }
   revalidatePath("/admin/settlements");
   return { ok: "Marked paid" };
+}
+
+export async function recordRiderRemittance(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireUser("ADMIN");
+  const values = formValues(formData);
+  const kobo = parseNairaToKobo(String(formData.get("amount") ?? ""));
+  if (!kobo) return { fieldErrors: { amount: "Enter an amount in naira" }, values };
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+  if (!note) return { fieldErrors: { note: "Add a note so the rider knows what this is" }, values };
+  const kind = String(formData.get("type") ?? "REMITTANCE");
+  const riderId = String(formData.get("riderId") ?? "");
+  await creditRemittance({
+    riderId,
+    amountKobo: kind === "ADJUSTMENT_DEBIT" ? -kobo : kobo,
+    note,
+    createdById: admin.id,
+    type: kind === "REMITTANCE" ? "REMITTANCE" : "ADJUSTMENT",
+  });
+  await logActivity({ actorId: admin.id, action: "rider.wallet_entry", targetType: "rider", targetId: riderId, details: `${kind} ₦${kobo / 100}: ${note}` });
+  revalidatePath("/admin", "layout");
+  return { ok: "Recorded" };
+}
+
+/** Sends (or re-sends) a settlement's payout through the payout provider. */
+export async function sendPayoutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireUser("ADMIN");
+  const id = String(formData.get("settlementId") ?? "");
+  const outcome = await sendSettlementPayout(id);
+  await logActivity({ actorId: admin.id, action: "settlement.payout_sent", targetType: "settlement", targetId: id, details: outcome });
+  revalidatePath("/admin/settlements");
+  const messages: Record<string, string> = {
+    success: "Paid",
+    pending: "Transfer sent; waiting for the bank",
+    failed: "The transfer failed. Check the store's bank details.",
+    manual: "No payout provider is set up. Pay by hand and mark it paid.",
+    "no-bank": "This store hasn't added a bank account",
+    "already-sent": "This payout was already sent",
+    "nothing-to-pay": "Nothing to pay",
+  };
+  return outcome === "success" || outcome === "pending" ? { ok: messages[outcome] } : { error: messages[outcome] };
 }

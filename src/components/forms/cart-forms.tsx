@@ -42,10 +42,9 @@ export function RemoveFromCart({ cartItemId, name }: { cartItemId: string; name:
   );
 }
 
-const PAYMENT_OPTIONS = [
-  { value: "ONLINE", label: "Pay now online", hint: "Card, bank transfer or USSD via Paystack. Your order goes to the store once paid." },
-  { value: "PAY_AT_STORE", label: "Pay at the store", hint: "Pay by cash, card or transfer when you collect." },
-];
+const ONLINE = { value: "ONLINE", label: "Pay now online", hint: "Card, bank transfer or USSD. Your order goes to the store once paid." };
+const AT_STORE = { value: "PAY_AT_STORE", label: "Pay at the store", hint: "Pay by cash, card or transfer when you collect." };
+const CASH = { value: "CASH_ON_DELIVERY", label: "Pay the rider in cash", hint: "Have the exact amount ready when your order arrives." };
 
 export type DeliveryOption = {
   addressId: string;
@@ -69,6 +68,7 @@ export function CheckoutForm({
   addAddressHref,
   pickupDays,
   prepMinutes,
+  cashOnDelivery,
 }: {
   supermarketId: string;
   checkoutKey: string;
@@ -80,18 +80,26 @@ export function CheckoutForm({
   addAddressHref: string;
   pickupDays: { label: string; slots: { iso: string; label: string }[] }[];
   prepMinutes: number;
+  /** Cash on delivery: whether it's on, and the largest order it covers (kobo; 0 = no limit). */
+  cashOnDelivery: { enabled: boolean; maxKobo: number };
 }) {
   const [state, action] = useActionState(checkout, {});
-  // Riders don't handle cash yet, so delivery needs online payment.
-  const deliveryUnavailable = deliveryBlocker ?? (onlineAvailable ? null : "Delivery needs online payment, which isn't available right now.");
+  const deliveryUnavailable =
+    deliveryBlocker ?? (onlineAvailable || cashOnDelivery.enabled ? null : "Delivery needs online payment, which isn't available right now.");
   const [fulfilment, setFulfilment] = useState<"PICKUP" | "DELIVERY">(pickupBlocker && !deliveryUnavailable ? "DELIVERY" : "PICKUP");
   const firstDeliverable = deliveryOptions.find((o) => o.feeKobo !== null);
   const [addressId, setAddressId] = useState(firstDeliverable?.addressId ?? "");
-  const paymentOptions = fulfilment === "DELIVERY" ? PAYMENT_OPTIONS.slice(0, 1) : onlineAvailable ? PAYMENT_OPTIONS : PAYMENT_OPTIONS.slice(1);
-  const [chosenMethod, setMethod] = useState(paymentOptions[0].value);
-  const method = paymentOptions.some((o) => o.value === chosenMethod) ? chosenMethod : paymentOptions[0].value;
   const fee = fulfilment === "DELIVERY" ? (deliveryOptions.find((o) => o.addressId === addressId)?.feeKobo ?? null) : 0;
-  const blocked = fulfilment === "PICKUP" ? Boolean(pickupBlocker) : Boolean(deliveryUnavailable) || fee === null;
+  const cashTooBig = cashOnDelivery.maxKobo > 0 && subtotalKobo + (fee ?? 0) > cashOnDelivery.maxKobo;
+  const cashOption = cashTooBig ? { ...CASH, hint: `Only for orders up to ${naira(cashOnDelivery.maxKobo)}.`, disabled: true } : CASH;
+  const paymentOptions: { value: string; label: string; hint: string; disabled?: boolean }[] =
+    fulfilment === "DELIVERY"
+      ? [...(onlineAvailable ? [ONLINE] : []), ...(cashOnDelivery.enabled ? [cashOption] : [])]
+      : [...(onlineAvailable ? [ONLINE] : []), AT_STORE];
+  const usable = paymentOptions.filter((o) => !o.disabled);
+  const [chosenMethod, setMethod] = useState(usable[0]?.value ?? "ONLINE");
+  const method = usable.some((o) => o.value === chosenMethod) ? chosenMethod : (usable[0]?.value ?? "ONLINE");
+  const blocked = fulfilment === "PICKUP" ? Boolean(pickupBlocker) : Boolean(deliveryUnavailable) || fee === null || usable.length === 0;
   const total = subtotalKobo + (fee ?? 0);
 
   const option = (active: boolean) => cx("flex cursor-pointer gap-3 rounded-xl border p-3", active ? "border-brand-600 bg-brand-50" : "border-gray-200");
@@ -191,8 +199,16 @@ export function CheckoutForm({
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-semibold text-gray-800">Payment</legend>
         {paymentOptions.map((o) => (
-          <label key={o.value} className={option(method === o.value)}>
-            <input type="radio" name="paymentMethod" value={o.value} checked={method === o.value} onChange={() => setMethod(o.value)} className="mt-1 h-4 w-4 accent-brand-700" />
+          <label key={o.value} className={cx(option(method === o.value), o.disabled && "cursor-not-allowed opacity-60")}>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value={o.value}
+              checked={method === o.value}
+              disabled={o.disabled}
+              onChange={() => setMethod(o.value)}
+              className="mt-1 h-4 w-4 accent-brand-700"
+            />
             <span>
               <span className="block text-sm font-bold text-gray-900">{o.label}</span>
               <span className="text-xs text-gray-600">{o.hint}</span>
@@ -229,7 +245,7 @@ export function CheckoutForm({
         />
       </label>
       <FormMessage state={state} />
-      <SubmitButton className="w-full" disabled={blocked} pendingText={method === "ONLINE" ? "Opening Paystack…" : "Placing order…"}>
+      <SubmitButton className="w-full" disabled={blocked} pendingText={method === "ONLINE" ? "Opening secure payment…" : "Placing order…"}>
         {method === "ONLINE" ? `Pay ${naira(total)}` : "Place order"}
       </SubmitButton>
     </form>

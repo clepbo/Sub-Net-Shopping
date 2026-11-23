@@ -8,12 +8,17 @@ import { formatDateTime } from "@/lib/time";
 import { ApprovalBadge } from "@/components/approval";
 import { DecisionForm } from "@/components/forms/admin-forms";
 import { Card, DefinitionList, Notice, Page, SectionTitle } from "@/components/ui";
+import { RecordRemittanceForm } from "@/components/forms/wallet-forms";
+import { formatNaira } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Rider" };
 
 export default async function AdminRiderDetail({ params }: { params: Promise<{ id: string }> }) {
   await requireUser("ADMIN");
-  const rider = await db.rider.findUnique({ where: { id: (await params).id }, include: { user: true } });
+  const rider = await db.rider.findUnique({
+    where: { id: (await params).id },
+    include: { user: true, walletEntries: { orderBy: { createdAt: "desc" }, take: 20 } },
+  });
   if (!rider) notFound();
 
   return (
@@ -45,6 +50,33 @@ export default async function AdminRiderDetail({ params }: { params: Promise<{ i
             ["Approved", rider.approvedAt ? formatDateTime(rider.approvedAt) : null],
           ]}
         />
+      </Card>
+      <Card className="space-y-3">
+        <SectionTitle>Cash wallet</SectionTitle>
+        <DefinitionList
+          items={[
+            ["Cash owed", formatNaira(Math.max(0, -rider.walletBalanceKobo))],
+            ["Status", rider.cashBlockedAt ? `Paused since ${formatDateTime(rider.cashBlockedAt)}` : "Can take jobs"],
+            ["Virtual account", rider.virtualAccountNumber ? `${rider.virtualAccountNumber} · ${rider.virtualAccountBank}` : "Not created"],
+            ["Payout bank", rider.bankAccountNumber ? `${rider.bankName} ••••${rider.bankAccountNumber.slice(-4)} · ${rider.bankAccountName}` : "Not added"],
+          ]}
+        />
+        {rider.walletEntries.length > 0 && (
+          <ul className="divide-y divide-gray-100 text-sm">
+            {rider.walletEntries.map((e) => (
+              <li key={e.id} className="flex justify-between gap-2 py-1.5">
+                <span className="min-w-0 truncate">
+                  {e.note ?? e.type} <span className="text-xs text-gray-500">· {formatDateTime(e.createdAt)}</span>
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                  {e.amountKobo < 0 ? "−" : "+"}
+                  {formatNaira(Math.abs(e.amountKobo))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <RecordRemittanceForm riderId={rider.id} />
       </Card>
       <Card>
         <SectionTitle>Vehicle</SectionTitle>

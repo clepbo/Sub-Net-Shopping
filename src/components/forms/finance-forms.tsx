@@ -7,6 +7,7 @@ import {
   markRiderPayoutPaidAction,
   markSettlementPaidAction,
   retryRefundAction,
+  sendPayoutAction,
 } from "@/app/actions/finance";
 import { FormMessage, SubmitButton } from "../form";
 
@@ -71,6 +72,19 @@ export function MarkRiderPayoutPaidForm({ payoutId }: { payoutId: string }) {
       <input name="reference" placeholder="Transfer reference" aria-label="Transfer reference" className="h-9 w-40 rounded-lg border border-gray-300 px-2 text-sm" />
       <SubmitButton size="sm" variant="secondary" pendingText="…">
         Mark paid
+      </SubmitButton>
+      <FormMessage state={state} />
+    </form>
+  );
+}
+
+export function SendPayoutButton({ settlementId, retry }: { settlementId: string; retry: boolean }) {
+  const [state, action] = useActionState(sendPayoutAction, {});
+  return (
+    <form action={action} className="space-y-1">
+      <input type="hidden" name="settlementId" value={settlementId} />
+      <SubmitButton size="sm" pendingText="Sending…">
+        {retry ? "Retry transfer" : "Send transfer"}
       </SubmitButton>
       <FormMessage state={state} />
     </form>

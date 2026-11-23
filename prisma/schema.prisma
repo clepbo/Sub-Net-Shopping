@@ -52,13 +52,13 @@ model User {
   customer          Customer?
   rider             Rider?
   staffRoles        SupermarketStaff[]
-  ownedMarkets      Supermarket[]      @relation("SupermarketOwner")
+  ownedMarkets      Supermarket[]        @relation("SupermarketOwner")
   notifications     Notification[]
-  activity          ActivityLog[]      @relation("ActivityActor")
+  activity          ActivityLog[]        @relation("ActivityActor")
   cartItems         CartItem[]
   addresses         CustomerAddress[]
   pushSubscriptions PushSubscription[]
-  orders            Order[]            @relation("CustomerOrders")
+  orders            Order[]              @relation("CustomerOrders")
   orderEvents       OrderEvent[]
   resetTokens       PasswordResetToken[]
 
@@ -76,13 +76,18 @@ model Customer {
 // ─── Supermarkets ─────────────────────────────────────────────────────
 
 model Supermarket {
-  id           String         @id @default(cuid())
-  ownerId      String
-  owner        User           @relation("SupermarketOwner", fields: [ownerId], references: [id])
-  status       ApprovalStatus @default(PENDING)
-  statusReason String?
+  id                String         @id @default(cuid())
+  ownerId           String
+  owner             User           @relation("SupermarketOwner", fields: [ownerId], references: [id])
+  status            ApprovalStatus @default(PENDING)
+  statusReason      String?
   /// Set when the merchant finishes the after-approval setup (opening hours).
-  onboardedAt  DateTime?
+  /// Bank account for payouts.
+  bankCode          String?
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+  onboardedAt       DateTime?
 
   name               String
   contactName        String
@@ -190,28 +195,43 @@ enum VehicleType {
 }
 
 model Rider {
-  id             String         @id @default(cuid())
-  userId         String         @unique
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status         ApprovalStatus @default(PENDING)
-  statusReason   String?
-  vehicleType    VehicleType
-  plateNumber    String
-  vehicleMake    String?
-  vehicleColor   String?
-  driversLicense String?
-  isOnline       Boolean        @default(false)
-  lastOnlineAt   DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  approvedAt     DateTime?
+  id                   String         @id @default(cuid())
+  userId               String         @unique
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status               ApprovalStatus @default(PENDING)
+  statusReason         String?
+  vehicleType          VehicleType
+  plateNumber          String
+  vehicleMake          String?
+  vehicleColor         String?
+  driversLicense       String?
+  isOnline             Boolean        @default(false)
+  lastOnlineAt         DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  approvedAt           DateTime?
   /// Latest GPS fix, shared while on a delivery (PRD §28 live tracking).
-  lastLat        Float?
-  lastLng        Float?
-  lastLocationAt DateTime?
+  lastLat              Float?
+  lastLng              Float?
+  lastLocationAt       DateTime?
+  /// Cash wallet: negative means the rider holds cash owed to SubNet.
+  walletBalanceKobo    Int            @default(0)
+  /// Set when unremitted cash passes the limit; no new jobs until cleared.
+  cashBlockedAt        DateTime?
+  /// Monnify reserved account the rider pays collected cash into.
+  virtualAccountRef    String?        @unique
+  virtualAccountNumber String?
+  virtualAccountBank   String?
+  virtualAccountName   String?
+  /// Bank account for earnings payouts.
+  bankCode             String?
+  bankName             String?
+  bankAccountNumber    String?
+  bankAccountName      String?
 
-  assignments DeliveryAssignment[]
-  payouts     RiderPayout[]
+  assignments   DeliveryAssignment[]
+  payouts       RiderPayout[]
+  walletEntries RiderWalletEntry[]
 
   @@index([status, isOnline])
 }
@@ -223,16 +243,18 @@ model Rider {
 // price/stock changes.
 
 model Category {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  slug      String     @unique
+  id            String     @id @default(cuid())
+  name          String     @unique
+  slug          String     @unique
   /// Emoji shown on category tiles, e.g. "🥛".
-  icon      String?
-  sortOrder Int        @default(0)
-  parentId  String?
-  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryTree")
-  products  Product[]
+  icon          String?
+  sortOrder     Int        @default(0)
+  /// Price markup for this category, overriding the platform default (e.g. 12 for staples).
+  markupPercent Float?
+  parentId      String?
+  parent        Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children      Category[] @relation("CategoryTree")
+  products      Product[]
 }
 
 model Product {
@@ -290,21 +312,24 @@ enum Availability {
 }
 
 model Inventory {
-  id            String          @id @default(cuid())
-  supermarketId String
-  supermarket   Supermarket     @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
-  productId     String
-  product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  supermarketId  String
+  supermarket    Supermarket     @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   /// The store's own SKU / product code.
-  sku           String
-  /// Price in kobo to avoid floating-point money.
-  priceKobo     Int
-  stockQuantity Int?
-  availability  Availability    @default(IN_STOCK)
-  source        InventorySource @default(MANUAL)
-  externalRef   String?
-  lastSyncedAt  DateTime?
-  updatedAt     DateTime        @updatedAt
+  sku            String
+  /// What customers pay, in kobo. With markup pricing it's worked out
+  /// from shelfPriceKobo and the category's markup.
+  priceKobo      Int
+  /// The store's own shelf price; the store receives exactly this per item.
+  shelfPriceKobo Int?
+  stockQuantity  Int?
+  availability   Availability    @default(IN_STOCK)
+  source         InventorySource @default(MANUAL)
+  externalRef    String?
+  lastSyncedAt   DateTime?
+  updatedAt      DateTime        @updatedAt
 
   cartItems  CartItem[]
   orderItems OrderItem[]
@@ -382,6 +407,8 @@ enum PaymentMethod {
   /// Paid at the supermarket on collection (until online payment, Phase 4).
   PAY_AT_STORE
   ONLINE
+  /// Delivery orders paid in cash to the rider, who then owes it to SubNet.
+  CASH_ON_DELIVERY
 }
 
 enum PaymentStatus {
@@ -391,32 +418,32 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                   String        @id @default(cuid())
+  id                   String                 @id @default(cuid())
   /// Human-friendly reference shown to customers and staff, e.g. SN-4821937.
-  number               String        @unique
+  number               String                 @unique
   customerId           String
-  customer             User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  customer             User                   @relation("CustomerOrders", fields: [customerId], references: [id])
   supermarketId        String
-  supermarket          Supermarket   @relation(fields: [supermarketId], references: [id])
-  status               OrderStatus   @default(PLACED)
-  fulfilment           Fulfilment    @default(PICKUP)
-  paymentMethod        PaymentMethod @default(PAY_AT_STORE)
-  paymentStatus        PaymentStatus @default(UNPAID)
+  supermarket          Supermarket            @relation(fields: [supermarketId], references: [id])
+  status               OrderStatus            @default(PLACED)
+  fulfilment           Fulfilment             @default(PICKUP)
+  paymentMethod        PaymentMethod          @default(PAY_AT_STORE)
+  paymentStatus        PaymentStatus          @default(UNPAID)
   subtotalKobo         Int
-  deliveryFeeKobo      Int           @default(0)
+  deliveryFeeKobo      Int                    @default(0)
   totalKobo            Int
   customerNote         String?
   /// Client-generated key so a double-submitted checkout creates one order.
-  checkoutKey          String        @unique
+  checkoutKey          String                 @unique
   /// 6-digit code the customer gives at the pickup point (unique among the store's open orders).
   pickupPin            String
   /// Secret in the pickup QR code; only valid until the order is collected.
-  pickupToken          String        @unique
+  pickupToken          String                 @unique
   /// Store commission rate when the order was placed, and the resulting amount (PRD §18).
-  commissionPercent    Float         @default(0)
-  commissionKobo       Int           @default(0)
+  commissionPercent    Float                  @default(0)
+  commissionKobo       Int                    @default(0)
   settlementId         String?
-  settlement           Settlement?   @relation(fields: [settlementId], references: [id])
+  settlement           Settlement?            @relation(fields: [settlementId], references: [id])
   paidAt               DateTime?
   /// Delivery details, copied at checkout (null for pickup orders).
   deliveryAddress      String?
@@ -435,12 +462,12 @@ model Order {
   pickupAt             DateTime?
   pickupReminderSentAt DateTime?
   cancelReason         String?
-  placedAt             DateTime      @default(now())
+  placedAt             DateTime               @default(now())
   confirmedAt          DateTime?
   readyAt              DateTime?
   collectedAt          DateTime?
   cancelledAt          DateTime?
-  updatedAt            DateTime      @updatedAt
+  updatedAt            DateTime               @updatedAt
 
   items    OrderItem[]
   events   OrderEvent[]
@@ -465,6 +492,9 @@ model OrderItem {
   unit              String?
   sku               String
   unitPriceKobo     Int
+  /// The store's own shelf price when the item was bought (markup pricing).
+  /// The store is paid this; the difference is SubNet's margin.
+  shelfPriceKobo    Int?
   /// What the customer asked for.
   requestedQuantity Int
   /// What the store will supply; the store can lower it before confirming.
@@ -491,6 +521,7 @@ model OrderEvent {
 
 enum PaymentProvider {
   PAYSTACK
+  MONNIFY
 }
 
 enum PaymentAttemptStatus {
@@ -546,7 +577,11 @@ model Refund {
 
 enum SettlementStatus {
   PENDING
+  /// Bank transfer sent, waiting for the provider to confirm.
+  PROCESSING
   PAID
+  /// The automatic transfer failed; an admin can retry or pay by hand.
+  FAILED
 }
 
 /// A payout statement for one supermarket covering a batch of collected
@@ -566,6 +601,11 @@ model Settlement {
   payableKobo       Int
   status            SettlementStatus @default(PENDING)
   transferReference String?
+  /// Automatic payout: which provider, our unique reference, and the last error.
+  payoutProvider    String?
+  payoutReference   String?          @unique
+  payoutError       String?
+  payoutAttemptedAt DateTime?
   paidAt            DateTime?
   createdById       String?
   createdAt         DateTime         @default(now())
@@ -733,4 +773,32 @@ model AuthAttempt {
 
   @@index([kind, identifier, createdAt])
   @@index([kind, ip, createdAt])
+}
+
+enum WalletEntryType {
+  /// Cash collected from a customer on delivery (debit).
+  CASH_COLLECTED
+  /// Cash paid in by the rider, e.g. to their virtual account (credit).
+  REMITTANCE
+  /// Correction by an admin, either way.
+  ADJUSTMENT
+}
+
+/// The rider's cash ledger. The balance is the sum of amounts (also cached on Rider).
+model RiderWalletEntry {
+  id          String          @id @default(cuid())
+  riderId     String
+  rider       Rider           @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  type        WalletEntryType
+  /// Signed: negative for cash collected, positive for remittances.
+  amountKobo  Int
+  balanceKobo Int
+  orderId     String?         @unique
+  /// Provider transaction reference, so a remittance is applied once.
+  reference   String?         @unique
+  note        String?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  @@index([riderId, createdAt])
 }

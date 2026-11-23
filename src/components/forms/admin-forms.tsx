@@ -1,5 +1,6 @@
 "use client";
 
+import type { SettingKey } from "@/lib/settings";
 import { useActionState } from "react";
 import { decideRider, decideSupermarket, setAccountStatus, updatePlatformSettings } from "@/app/actions/admin";
 import type { ApprovalStatus } from "@/generated/prisma/enums";
@@ -57,11 +58,38 @@ export function AccountStatusButton({ id, suspended }: { id: string; suspended: 
 export function SettingsForm({
   values,
 }: {
-  values: { supermarketCommissionPercent: string; riderCommissionPercent: string; deliveryBaseFee: string; deliveryPerKm: string; deliveryMaxKm: string };
+  values: Record<SettingKey, string>;
 }) {
   const [state, action] = useActionState(updatePlatformSettings, {});
   return (
     <form action={action} className="space-y-4" noValidate>
+      <h3 className="text-xs font-bold tracking-wider text-gray-600 uppercase">Product pricing</h3>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Default markup (%)"
+          name="defaultMarkupPercent"
+          type="number"
+          step="0.1"
+          min={0}
+          max={100}
+          inputMode="decimal"
+          defaultValue={values.defaultMarkupPercent}
+          hint="Added to stores' shelf prices. Categories can have their own (Admin → Categories). Changing it updates every price."
+          state={state}
+        />
+        <Field
+          label="Payment gateway fee (%)"
+          name="gatewayFeePercent"
+          type="number"
+          step="0.1"
+          min={0}
+          max={10}
+          inputMode="decimal"
+          defaultValue={values.gatewayFeePercent}
+          hint="What Monnify/Paystack take. Used to show the break-even markup."
+          state={state}
+        />
+      </div>
       <Field
         label="Supermarket commission (%)"
         name="supermarketCommissionPercent"
@@ -71,7 +99,7 @@ export function SettingsForm({
         max={50}
         inputMode="decimal"
         defaultValue={values.supermarketCommissionPercent}
-        hint="Taken from eligible SubNet sales. PRD proposal: 10%."
+        hint="SubNet's target cut. With markup pricing it's covered by the markup; it's only charged on old listings without a shelf price."
         state={state}
       />
       <Field
@@ -93,6 +121,33 @@ export function SettingsForm({
         <Field label="Max distance (km)" name="deliveryMaxKm" type="number" min={1} inputMode="decimal" defaultValue={values.deliveryMaxKm} state={state} />
       </div>
       <p className="text-xs text-gray-500">Fee = (base + per km × road distance) × vehicle size (motorcycle 1×, car 1.6×, van 2.5×, truck 4×), rounded up to ₦50.</p>
+      <h3 className="pt-2 text-xs font-bold tracking-wider text-gray-600 uppercase">Cash on delivery</h3>
+      <label className="flex items-center gap-2 text-sm font-semibold">
+        <input type="checkbox" name="cashOnDeliveryEnabled" defaultChecked={values.cashOnDeliveryEnabled === "1"} className="h-5 w-5 accent-brand-700" />
+        Let customers pay the rider in cash
+      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Largest cash order (₦)"
+          name="cashOnDeliveryMaxOrder"
+          type="number"
+          min={0}
+          inputMode="decimal"
+          defaultValue={values.cashOnDeliveryMaxOrder}
+          hint="Bigger orders must be paid online."
+          state={state}
+        />
+        <Field
+          label="Rider cash limit (₦)"
+          name="riderMaxCashDebt"
+          type="number"
+          min={0}
+          inputMode="decimal"
+          defaultValue={values.riderMaxCashDebt}
+          hint="Riders holding this much unremitted cash are paused until they pay it in."
+          state={state}
+        />
+      </div>
       <SubmitButton>Save settings</SubmitButton>
       <FormMessage state={state} />
     </form>
