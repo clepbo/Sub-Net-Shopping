@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import type { ProductSummary } from "@/lib/catalog";
 import { formatNaira } from "@/lib/money";
+import { ListButton } from "./shopping-list";
 import { AddToCart } from "./add-to-cart";
 import { cx } from "./ui";
 
@@ -54,10 +55,16 @@ export function ProductCard({ product, storeContext = false }: { product: Produc
           </div>
         </div>
       </Link>
-      {canAdd && (
+      {canAdd ? (
         <div className="px-3 pb-3">
           <AddToCart inventoryId={product.listingId} returnTo={`/products/${product.id}`} compact />
         </div>
+      ) : (
+        !storeContext && (
+          <div className="px-3 pb-3">
+            <ListButton productId={product.id} compact className="w-full" />
+          </div>
+        )
       )}
     </div>
   );

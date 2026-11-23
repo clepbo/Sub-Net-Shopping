@@ -7,6 +7,7 @@ import { AVAILABILITY_LABEL } from "@/lib/inventory";
 import { formatNaira } from "@/lib/money";
 import { availabilityOf } from "@/lib/supermarkets";
 import { AddToCart } from "@/components/add-to-cart";
+import { ListButton } from "@/components/shopping-list";
 import { ProductGallery } from "@/components/product-gallery";
 import { ProductRail } from "@/components/product-card";
 import { StoreLogo } from "@/components/store-logo";
@@ -64,6 +65,12 @@ export default async function ProductPage({ params }: Props) {
             {product.brand && <p className="text-xs font-bold tracking-wide text-gray-500 uppercase">{product.brand}</p>}
             <h1 className="text-2xl leading-tight font-extrabold text-gray-900 lg:text-3xl">{product.name}</h1>
             {product.unit && <p className="text-gray-600">{product.unit}</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <ListButton productId={product.id} />
+            <Link href="/basket" className="text-sm font-bold text-brand-700 underline">
+              Find one store with everything on my list
+            </Link>
           </div>
 
           <div className="rounded-2xl bg-brand-50 p-4">

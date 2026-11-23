@@ -7,6 +7,7 @@ import { listCategories } from "@/lib/catalog";
 import { ROLE_HOME } from "@/lib/session-token";
 import { Wordmark } from "./logo";
 import { SearchBox } from "./search-box";
+import { ListLink } from "./shopping-list";
 
 const ROLE_LABEL = { CUSTOMER: null, SUPERMARKET: "Merchant", RIDER: "Rider", ADMIN: "Admin" } as const;
 
@@ -88,6 +89,7 @@ export async function SiteHeader() {
             </Link>
           )}
           {bell}
+          {(!active || active.role === "CUSTOMER") && <ListLink />}
           {(!active || active.role === "CUSTOMER") && (
             <Link
               href="/cart"

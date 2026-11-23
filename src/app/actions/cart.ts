@@ -60,3 +60,30 @@ export async function removeFromCart(formData: FormData) {
   await db.cartItem.deleteMany({ where: { id: String(formData.get("cartItemId") ?? ""), userId: user.id } });
   revalidatePath("/", "layout");
 }
+
+/** Adds every in-stock item from a shopping list at one store (one of each). */
+export async function addListToCart(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const returnTo = String(formData.get("returnTo") ?? "/basket");
+  const current = await getCurrentUser();
+  if (!current) redirect(`/login?next=${encodeURIComponent(returnTo.startsWith("/") ? returnTo : "/basket")}`);
+  const user = await requireUser("CUSTOMER");
+  const ids = formData.getAll("inventoryId").map(String).slice(0, MAX_CART_LINES);
+  const listings = await db.inventory.findMany({
+    where: {
+      id: { in: ids },
+      supermarketId: String(formData.get("supermarketId") ?? ""),
+      availability: { in: ["IN_STOCK", "LOW_STOCK"] },
+      supermarket: { status: "APPROVED" },
+    },
+    select: { id: true, stockQuantity: true },
+  });
+  const usable = listings.filter((l) => l.stockQuantity === null || l.stockQuantity > 0);
+  if (!usable.length) return { error: "These items have just gone out of stock" };
+  const existing = await db.cartItem.findMany({ where: { userId: user.id }, select: { inventoryId: true } });
+  const have = new Set(existing.map((e) => e.inventoryId));
+  const toAdd = usable.filter((l) => !have.has(l.id));
+  if (existing.length + toAdd.length > MAX_CART_LINES) return { error: "Your cart is too full for the whole list. Check out or remove some items first." };
+  if (toAdd.length) await db.cartItem.createMany({ data: toAdd.map((l) => ({ userId: user.id, inventoryId: l.id, quantity: 1 })), skipDuplicates: true });
+  revalidatePath("/", "layout");
+  redirect("/cart");
+}
