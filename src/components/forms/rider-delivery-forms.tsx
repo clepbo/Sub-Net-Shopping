@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 const noopSubscribe = () => () => {};
-import { acceptDeliveryAction, completeDeliveryAction, pickedUpAction, releaseDeliveryAction, shareLocation } from "@/app/actions/rider";
+import { acceptDeliveryAction, completeDeliveryAction, failDeliveryAction, pickedUpAction, releaseDeliveryAction, shareLocation } from "@/app/actions/rider";
+import { DELIVERY_FAILURE_LABEL } from "@/lib/order-rules";
 import { FormMessage, SubmitButton } from "../form";
 
 export function AcceptButton({ orderId }: { orderId: string }) {
@@ -70,6 +71,45 @@ export function DeliveredForm({ assignmentId }: { assignmentId: string }) {
         Confirm delivered
       </SubmitButton>
       <FormMessage state={state} />
+    </form>
+  );
+}
+
+/** "Couldn't deliver": the rider says why, then takes the order back to the store. */
+export function FailedDeliveryForm({ assignmentId, customerPhone }: { assignmentId: string; customerPhone: string | null }) {
+  const [state, action] = useActionState(failDeliveryAction, {});
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="w-full text-sm font-bold text-red-700 underline">
+        Can&apos;t deliver this order?
+      </button>
+    );
+  }
+  return (
+    <form action={action} className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-3">
+      <p className="text-sm font-bold text-red-900">Couldn&apos;t deliver</p>
+      <p className="text-xs text-red-900">
+        {customerPhone ? "Call the customer first and wait a few minutes. " : ""}If you still can&apos;t hand it over, tell us why. You&apos;ll then take the order back to the store.
+      </p>
+      <input type="hidden" name="assignmentId" value={assignmentId} />
+      <fieldset className="space-y-1.5">
+        {Object.entries(DELIVERY_FAILURE_LABEL).map(([value, label]) => (
+          <label key={value} className="flex items-start gap-2 text-sm">
+            <input type="radio" name="reason" value={value} required className="mt-0.5 accent-red-700" /> {label}
+          </label>
+        ))}
+      </fieldset>
+      <textarea name="note" rows={2} maxLength={300} placeholder="What happened? (required for “Something else”)" className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
+      <FormMessage state={state} />
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-xl border border-gray-300 bg-white py-2 text-sm font-bold">
+          Back
+        </button>
+        <SubmitButton variant="danger" className="flex-1" pendingText="Reporting…">
+          Report failed delivery
+        </SubmitButton>
+      </div>
     </form>
   );
 }

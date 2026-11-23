@@ -16,6 +16,33 @@ This repository implements all five phases of the product requirements document 
 - **Login protection:** 5 wrong passwords for one account (or 30 from one network) in 15 minutes locks sign-in for that account for the rest of the window. Reset requests are limited to 3 an hour per account.
 - **Legal pages:** `/terms`, `/privacy`, `/refunds`. They're a sensible starting point written for Nigeria (NDPA 2023, FCCPA 2018); have a lawyer review them before launch.
 
+## Shopping list (find one store with everything)
+
+Shoppers tap **Add to list** on products, then open the list (icon next to the cart, or `/basket`). SubNet ranks supermarkets by distance from the shopper's location or a saved address (by price if neither is set):
+
+- the **closest store with everything** on the list, with the basket total;
+- a **closer store that's missing some items**, listing what's out of stock there;
+- every other store with items from the list.
+
+One tap adds the whole list from a store to the cart. The list lives in the browser, so it works before signing in, and a `/basket?items=…` link can be shared.
+
+## Supermarket staff logins
+
+Managers add staff under **Merchant → Staff**. Each person gets their own login: SubNet emails them a link to set a password (valid 3 days), and the manager can also copy it or send it on WhatsApp.
+
+- **Staff** can handle orders, pickup and products/stock.
+- **Managers** can also change the store profile, hours, payouts and staff.
+- Removing someone signs them out at once and closes their login. The owner can't be removed.
+
+## Failed deliveries
+
+If a rider can't hand an order over, they tap **Can't deliver this order?** and pick a reason. The order becomes **Delivery failed** and the rider takes it back to the store. They can't take new jobs until the store taps **Confirm items are back**, which puts the stock back and refunds the customer.
+
+| Reason | Customer refund | Rider paid for the trip |
+|---|---|---|
+| Customer not available, wrong address, refused | Items only (delivery fee kept) | Yes |
+| Rider's side (breakdown, accident, damage), or other | Everything | No |
+
 ## Pickup times & reminders
 
 - Customers choose a **pickup time** at checkout: 30-minute slots today and the next two days, inside the store's pickup window (or opening hours) and at least the store's **preparation time** ahead (set on the Hours page; default 30 minutes). After today's last order time, slots start tomorrow; a pickup pause moves the earliest slot past the pause. The server re-checks the chosen time, so it can't be outside the store's rules.

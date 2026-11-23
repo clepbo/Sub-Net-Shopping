@@ -11,6 +11,7 @@ export const ORDER_TONE: Record<OrderStatus, Tone> = {
   CONFIRMED: "blue",
   READY_FOR_PICKUP: "green",
   OUT_FOR_DELIVERY: "blue",
+  DELIVERY_FAILED: "red",
   DELIVERED: "gray",
   COLLECTED: "gray",
   CANCELLED: "red",

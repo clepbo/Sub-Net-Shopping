@@ -68,7 +68,7 @@ async function saveImages(productId: string, supermarketId: string, files: File[
  * otherwise a new catalogue product is created from the details given.
  */
 export async function createListing(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await requireEditableStore();
+  const { user, store, blocked } = await requireEditableStore({ managerOnly: false });
   const values = formValues(formData);
   if (blocked) return { error: blocked, values };
 
@@ -151,7 +151,7 @@ export async function createListing(_prev: ActionState, formData: FormData): Pro
 }
 
 export async function updateListing(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await requireEditableStore();
+  const { user, store, blocked } = await requireEditableStore({ managerOnly: false });
   const values = formValues(formData);
   if (blocked) return { error: blocked, values };
   const id = String(formData.get("inventoryId") ?? "");
@@ -178,7 +178,7 @@ export async function updateListing(_prev: ActionState, formData: FormData): Pro
 
 /** Inline price/stock update from the products table. */
 export async function quickUpdateListing(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { store, blocked } = await requireEditableStore();
+  const { store, blocked } = await requireEditableStore({ managerOnly: false });
   if (blocked) return { error: blocked };
   const id = String(formData.get("inventoryId") ?? "");
   const listing = await db.inventory.findFirst({ where: { id, supermarketId: store.id } });
@@ -195,7 +195,7 @@ export async function quickUpdateListing(_prev: ActionState, formData: FormData)
 }
 
 export async function updateProductDetails(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, store, blocked } = await requireEditableStore();
+  const { user, store, blocked } = await requireEditableStore({ managerOnly: false });
   const values = formValues(formData);
   if (blocked) return { error: blocked, values };
   const id = String(formData.get("inventoryId") ?? "");
@@ -223,7 +223,7 @@ export async function updateProductDetails(_prev: ActionState, formData: FormDat
 }
 
 export async function uploadProductImages(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { store, blocked } = await requireEditableStore();
+  const { store, blocked } = await requireEditableStore({ managerOnly: false });
   if (blocked) return { error: blocked };
   const id = String(formData.get("inventoryId") ?? "");
   const listing = await db.inventory.findFirst({ where: { id, supermarketId: store.id } });
@@ -240,7 +240,7 @@ export async function uploadProductImages(_prev: ActionState, formData: FormData
 }
 
 export async function deleteProductImage(formData: FormData) {
-  const { store, blocked } = await requireEditableStore();
+  const { store, blocked } = await requireEditableStore({ managerOnly: false });
   if (blocked) return;
   const image = await db.productImage.findFirst({ where: { id: String(formData.get("imageId") ?? ""), supermarketId: store.id } });
   if (!image) return;
@@ -254,7 +254,7 @@ export async function deleteProductImage(formData: FormData) {
  * created it, the catalogue entry and its images go too.
  */
 export async function deleteListing(formData: FormData) {
-  const { user, store, blocked } = await requireEditableStore();
+  const { user, store, blocked } = await requireEditableStore({ managerOnly: false });
   if (blocked) return;
   const listing = await db.inventory.findFirst({
     where: { id: String(formData.get("inventoryId") ?? ""), supermarketId: store.id },
@@ -276,7 +276,7 @@ export type ImportResult = ActionState & { created?: number; updated?: number; r
 
 /** Bulk create/update listings from a CSV, e.g. a POS export (PRD §9). */
 export async function importProductsCsv(_prev: ImportResult, formData: FormData): Promise<ImportResult> {
-  const { user, store, blocked } = await requireEditableStore();
+  const { user, store, blocked } = await requireEditableStore({ managerOnly: false });
   if (blocked) return { error: blocked };
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a CSV file to import" };

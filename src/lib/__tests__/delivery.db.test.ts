@@ -169,4 +169,44 @@ describe.skipIf(!enabled)("delivery (database)", async () => {
     expect((await db.deliveryAssignment.findFirstOrThrow({ where: { riderId: riders.bike.id, status: "DELIVERED" } })).earningStatus).toBe("PAID");
     expect(await createRiderPayout(riders.bike.id, ownerId)).toBeNull();
   });
+
+  async function outForDelivery(rider: (typeof riders)[string]) {
+    const placed = await paidDeliveryOrder([[rice, 1]]);
+    await changeOrderStatus({ orderId: placed.orderId, actor: "STORE", actorId: ownerId, to: "CONFIRMED" });
+    const a = await deliveries.acceptDelivery(rider, placed.orderId);
+    await changeOrderStatus({ orderId: placed.orderId, actor: "STORE", actorId: ownerId, to: "READY_FOR_PICKUP" });
+    await deliveries.markPickedUp(rider, a.id);
+    return { ...placed, assignmentId: a.id };
+  }
+
+  it("handles a failed delivery the customer caused: goods back, items refunded, fee kept, rider paid", async () => {
+    const stockBefore = (await db.inventory.findUniqueOrThrow({ where: { id: rice } })).stockQuantity!;
+    const { orderId, assignmentId } = await outForDelivery(riders.bike2);
+    await expect(deliveries.failDelivery(riders.bike2, assignmentId, "OTHER", null)).rejects.toThrow(/what happened/);
+    await deliveries.failDelivery(riders.bike2, assignmentId, "CUSTOMER_UNREACHABLE", "Called 3 times");
+    let o = await order(orderId);
+    expect(o).toMatchObject({ status: "DELIVERY_FAILED", deliveryFailReason: "CUSTOMER_UNREACHABLE", deliveryFailNote: "Called 3 times" });
+    expect(o.delivery?.status).toBe("FAILED");
+    // The rider still holds the goods: no new jobs until the store confirms.
+    expect((await deliveries.activeAssignment(riders.bike2.id))?.id).toBe(assignmentId);
+    // Only the store can close it, by confirming the return.
+    await expect(changeOrderStatus({ orderId, actor: "RIDER", actorId: null, to: "DELIVERED" })).rejects.toThrow();
+    await changeOrderStatus({ orderId, actor: "STORE", actorId: ownerId, to: "CANCELLED", reason: "Returned" });
+    o = await order(orderId);
+    expect(o.status).toBe("CANCELLED");
+    expect(o.delivery?.earningStatus).toBe("ELIGIBLE");
+    const refunded = o.payments.flatMap((p) => p.refunds).reduce((n, r) => n + r.amountKobo, 0);
+    expect(refunded).toBe(o.totalKobo - o.deliveryFeeKobo);
+    expect((await db.inventory.findUniqueOrThrow({ where: { id: rice } })).stockQuantity).toBe(stockBefore);
+    expect(await deliveries.activeAssignment(riders.bike2.id)).toBeNull();
+  });
+
+  it("refunds everything and pays no earning when the failure was on the rider's side", async () => {
+    const { orderId, assignmentId } = await outForDelivery(riders.bike2);
+    await deliveries.failDelivery(riders.bike2, assignmentId, "RIDER_ISSUE", "Puncture");
+    await changeOrderStatus({ orderId, actor: "STORE", actorId: ownerId, to: "CANCELLED", reason: "Returned" });
+    const o = await order(orderId);
+    expect(o.delivery?.earningStatus).toBe("VOID");
+    expect(o.payments.flatMap((p) => p.refunds).reduce((n, r) => n + r.amountKobo, 0)).toBe(o.totalKobo);
+  });
 });

@@ -69,7 +69,11 @@ export default async function RiderDashboard({ searchParams }: { searchParams: P
           <span>
             <span className="block text-xs font-bold uppercase">Current delivery</span>
             <span className="block font-mono text-lg font-black">{active.order.number}</span>
-            <span className="text-sm">{active.status === "ASSIGNED" ? `Collect from ${active.order.supermarket.name}` : `Deliver to ${active.order.deliveryAddress}`}</span>
+            <span className="text-sm">{active.status === "ASSIGNED"
+                ? `Collect from ${active.order.supermarket.name}`
+                : active.status === "FAILED"
+                  ? `Return it to ${active.order.supermarket.name}`
+                  : `Deliver to ${active.order.deliveryAddress}`}</span>
           </span>
           <ArrowRight className="h-6 w-6 shrink-0" aria-hidden />
         </Link>

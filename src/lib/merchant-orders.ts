@@ -11,6 +11,7 @@ export const ORDER_TABS: { key: string; label: string; statuses: OrderStatus[] }
   { key: "preparing", label: "Preparing", statuses: ["CONFIRMED"] },
   { key: "ready", label: "Ready", statuses: ["READY_FOR_PICKUP"] },
   { key: "delivering", label: "Out for delivery", statuses: ["OUT_FOR_DELIVERY"] },
+  { key: "returns", label: "Failed deliveries", statuses: ["DELIVERY_FAILED"] },
   { key: "done", label: "Completed", statuses: ["COLLECTED", "DELIVERED"] },
   { key: "cancelled", label: "Cancelled", statuses: ["CANCELLED"] },
 ];
@@ -23,6 +24,7 @@ export async function orderCounts(supermarketId: string) {
     CONFIRMED: 0,
     READY_FOR_PICKUP: 0,
     OUT_FOR_DELIVERY: 0,
+    DELIVERY_FAILED: 0,
     DELIVERED: 0,
     COLLECTED: 0,
     CANCELLED: 0,

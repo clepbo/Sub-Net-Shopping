@@ -1,3 +1,4 @@
+import { DELIVERY_FAILURE_LABEL } from "@/lib/order-rules";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -44,6 +45,12 @@ export default async function MerchantOrderPage({ params }: { params: Promise<{ 
         <OrderStatusBadge status={order.status} fulfilment={order.fulfilment} />
       </div>
 
+      {order.status === "DELIVERY_FAILED" && (
+        <Notice tone="red" title="Delivery failed: rider bringing it back">
+          {order.deliveryFailReason && DELIVERY_FAILURE_LABEL[order.deliveryFailReason]}
+          {order.deliveryFailNote && ` · “${order.deliveryFailNote}”`}
+        </Notice>
+      )}
       {order.status === "CANCELLED" && order.cancelReason && (
         <Notice tone="red" title="Cancelled">
           {order.cancelReason}

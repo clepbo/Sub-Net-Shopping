@@ -272,3 +272,11 @@ export const categoryFields = z.object({
     .trim()
     .transform((v) => v || null),
 });
+
+export const staffInvite = z.object({
+  firstName: name("First name"),
+  lastName: name("Last name"),
+  phone: nigerianPhone,
+  email,
+  role: z.enum(["STAFF", "MANAGER"], { message: "Choose a role" }),
+});

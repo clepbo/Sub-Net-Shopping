@@ -6,7 +6,7 @@ import { db } from "./db";
 import { canCarry, roadDistanceKm } from "./delivery-rules";
 import { notifyStoreStaff } from "./order-notify";
 import { changeOrderStatus, OrderError } from "./orders";
-import { commissionOn } from "./order-rules";
+import { commissionOn, DELIVERY_FAILURE_LABEL, type DeliveryFailure } from "./order-rules";
 import { getSettings } from "./settings";
 import { queuePush } from "./push";
 import { Prisma } from "@/generated/prisma/client";
@@ -21,7 +21,8 @@ function assertCanWork(rider: RiderContext) {
 /** The rider's current delivery, if any. Riders carry one order at a time. */
 export function activeAssignment(riderId: string) {
   return db.deliveryAssignment.findFirst({
-    where: { riderId, status: { in: ["ASSIGNED", "PICKED_UP"] } },
+    // A failed delivery stays with the rider until the store confirms it's back.
+    where: { riderId, OR: [{ status: { in: ["ASSIGNED", "PICKED_UP"] } }, { status: "FAILED", order: { status: "DELIVERY_FAILED" } }] },
     include: { order: { include: { supermarket: true, items: true, customer: { select: { firstName: true, lastName: true } } } } },
   });
 }
@@ -116,6 +117,18 @@ export async function completeDelivery(rider: RiderContext, assignmentId: string
   if (pin.replace(/\s/g, "") !== a.order.pickupPin) throw new OrderError("That PIN doesn't match. Ask the customer to check their order page.");
   await changeOrderStatus({ orderId: a.orderId, actor: "RIDER", actorId: rider.userId, to: "DELIVERED" });
   await db.$transaction((tx) => notifyStoreStaff(tx, a.order.supermarketId, `Order ${a.order.number} delivered`, "The customer confirmed delivery with their PIN."));
+}
+
+/**
+ * The rider couldn't hand the order over. They keep it and bring it back to
+ * the store, which confirms the return (see the store's order page).
+ */
+export async function failDelivery(rider: RiderContext, assignmentId: string, reason: DeliveryFailure, note: string | null) {
+  const a = await db.deliveryAssignment.findFirst({ where: { id: assignmentId, riderId: rider.id, status: "PICKED_UP" }, include: { order: true } });
+  if (!a) throw new OrderError("Delivery not found");
+  if (!(reason in DELIVERY_FAILURE_LABEL)) throw new OrderError("Choose what went wrong");
+  if (reason === "OTHER" && !note) throw new OrderError("Tell us briefly what happened");
+  await changeOrderStatus({ orderId: a.orderId, actor: "RIDER", actorId: rider.userId, to: "DELIVERY_FAILED", failure: { reason, note } });
 }
 
 /** Records the rider's GPS position while they're on a delivery. */

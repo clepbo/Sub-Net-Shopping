@@ -6,7 +6,7 @@ import { Card, Page, PageTitle } from "@/components/ui";
 export const metadata: Metadata = { title: "Opening hours" };
 
 export default async function MerchantHoursPage() {
-  const { store } = await requireMerchantStore();
+  const { store } = await requireMerchantStore({ managerOnly: true });
   return (
     <Page>
       <PageTitle

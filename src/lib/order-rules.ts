@@ -14,16 +14,18 @@ const TRANSITIONS: Record<OrderActor, Partial<Record<OrderStatus, OrderStatus[]>
     PLACED: ["CONFIRMED", "CANCELLED"],
     CONFIRMED: ["READY_FOR_PICKUP", "CANCELLED"],
     READY_FOR_PICKUP: ["COLLECTED", "CANCELLED"],
+    // The rider brought a failed delivery back; the store confirms and the order closes.
+    DELIVERY_FAILED: ["CANCELLED"],
   },
   // The assigned rider takes a delivery order from the store to the customer.
   RIDER: {
     READY_FOR_PICKUP: ["OUT_FOR_DELIVERY"],
-    OUT_FOR_DELIVERY: ["DELIVERED"],
+    OUT_FOR_DELIVERY: ["DELIVERED", "DELIVERY_FAILED"],
   },
 };
 
 const PICKUP_ONLY: OrderStatus[] = ["COLLECTED"];
-const DELIVERY_ONLY: OrderStatus[] = ["OUT_FOR_DELIVERY", "DELIVERED"];
+const DELIVERY_ONLY: OrderStatus[] = ["OUT_FOR_DELIVERY", "DELIVERY_FAILED", "DELIVERED"];
 
 export function canTransition(actor: OrderActor, from: OrderStatus, to: OrderStatus, fulfilment: Fulfilment = "PICKUP") {
   if (fulfilment === "PICKUP" && DELIVERY_ONLY.includes(to)) return false;
@@ -49,6 +51,7 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   CONFIRMED: "Being prepared",
   READY_FOR_PICKUP: "Ready for pickup",
   OUT_FOR_DELIVERY: "Out for delivery",
+  DELIVERY_FAILED: "Delivery failed",
   DELIVERED: "Delivered",
   COLLECTED: "Collected",
   CANCELLED: "Cancelled",
@@ -61,6 +64,7 @@ export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
   CONFIRMED: "The supermarket is picking and bagging your items.",
   READY_FOR_PICKUP: "Your order is bagged and waiting. Show your pickup QR code or PIN at the pickup point.",
   OUT_FOR_DELIVERY: "Your rider has your order and is on the way. Give them your PIN when they arrive.",
+  DELIVERY_FAILED: "Your rider couldn't deliver this order and is taking it back to the store. You'll be refunded once the store has it back.",
   DELIVERED: "Your order was delivered.",
   COLLECTED: "You collected this order.",
   CANCELLED: "This order was cancelled.",
@@ -103,9 +107,33 @@ export function newOrderNumber(random: () => number = Math.random) {
 }
 
 /** Statuses during which an order's pickup code must be unique within its store. */
-export const ACTIVE_STATUSES: OrderStatus[] = ["AWAITING_PAYMENT", "PLACED", "CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
+export const ACTIVE_STATUSES: OrderStatus[] = ["AWAITING_PAYMENT", "PLACED", "CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "DELIVERY_FAILED"];
 
 /** Commission on product sales (delivery fees excluded), PRD §18. */
 export function commissionOn(subtotalKobo: number, percent: number) {
   return Math.round((subtotalKobo * percent) / 100);
+}
+
+export const DELIVERY_FAILURE_LABEL = {
+  CUSTOMER_UNREACHABLE: "Customer not available / not answering",
+  WRONG_ADDRESS: "Wrong or incomplete address",
+  CUSTOMER_REFUSED: "Customer refused the order",
+  RIDER_ISSUE: "Problem on my side (breakdown, accident, damaged goods)",
+  OTHER: "Something else",
+} as const;
+
+export type DeliveryFailure = keyof typeof DELIVERY_FAILURE_LABEL;
+
+/**
+ * Who bears a failed delivery. When it's down to the customer (not there,
+ * wrong address, refused), the delivery fee isn't refunded and the rider is
+ * still paid for the trip. Otherwise the customer gets everything back.
+ */
+export function customerAtFault(reason: DeliveryFailure | null | undefined) {
+  return reason === "CUSTOMER_UNREACHABLE" || reason === "WRONG_ADDRESS" || reason === "CUSTOMER_REFUSED";
+}
+
+/** What the customer is refunded when a failed delivery is closed. */
+export function failedDeliveryRefund(order: { totalKobo: number; deliveryFeeKobo: number }, reason: DeliveryFailure | null | undefined) {
+  return customerAtFault(reason) ? order.totalKobo - order.deliveryFeeKobo : order.totalKobo;
 }

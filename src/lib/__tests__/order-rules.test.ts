@@ -68,3 +68,21 @@ describe("delivery transitions", () => {
     expect(canTransition("STORE", "OUT_FOR_DELIVERY", "CANCELLED", "DELIVERY")).toBe(false);
   });
 });
+
+describe("failed deliveries", async () => {
+  const { canTransition, failedDeliveryRefund, customerAtFault } = await import("../order-rules");
+  it("lets the rider fail a delivery and only the store close it", () => {
+    expect(canTransition("RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED", "DELIVERY")).toBe(true);
+    expect(canTransition("RIDER", "DELIVERY_FAILED", "DELIVERED", "DELIVERY")).toBe(false);
+    expect(canTransition("STORE", "DELIVERY_FAILED", "CANCELLED", "DELIVERY")).toBe(true);
+    expect(canTransition("CUSTOMER", "DELIVERY_FAILED", "CANCELLED", "DELIVERY")).toBe(false);
+    expect(canTransition("RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED", "PICKUP")).toBe(false);
+  });
+  it("keeps the delivery fee only when the customer caused it", () => {
+    const o = { totalKobo: 10_000, deliveryFeeKobo: 1_500 };
+    expect(failedDeliveryRefund(o, "WRONG_ADDRESS")).toBe(8_500);
+    expect(failedDeliveryRefund(o, "RIDER_ISSUE")).toBe(10_000);
+    expect(failedDeliveryRefund(o, "OTHER")).toBe(10_000);
+    expect(customerAtFault("CUSTOMER_REFUSED")).toBe(true);
+  });
+});

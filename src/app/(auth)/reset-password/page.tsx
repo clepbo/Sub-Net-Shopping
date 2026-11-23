@@ -7,13 +7,15 @@ import { LinkButton, Notice } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Choose a new password", robots: { index: false } };
 
-export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
-  const token = (await searchParams).token ?? "";
+export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string; invite?: string }> }) {
+  const sp = await searchParams;
+  const token = sp.token ?? "";
+  const invite = sp.invite === "1";
   const valid = await findValidToken(token);
   return (
     <AuthLayout
-      title="Choose a new password"
-      subtitle={valid ? `For ${valid.user.email}. You'll be signed out everywhere else.` : undefined}
+      title={invite ? "Set your password" : "Choose a new password"}
+      subtitle={valid ? (invite ? `Your login is ${valid.user.email}.` : `For ${valid.user.email}. You'll be signed out everywhere else.`) : undefined}
       footer={
         <p>
           <Link href="/login" className="font-bold text-brand-700 underline">
@@ -27,7 +29,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
       ) : (
         <div className="space-y-4">
           <Notice tone="red" title="This link has expired or was already used">
-            Reset links work once, for an hour. Ask for a new one below.
+            {invite ? "Ask your store manager to resend your invite, or request a reset link below." : "Reset links work once, for an hour. Ask for a new one below."}
           </Notice>
           <LinkButton href="/forgot-password" className="w-full">
             Send a new link

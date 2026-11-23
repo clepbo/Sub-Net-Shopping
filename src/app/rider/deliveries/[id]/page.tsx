@@ -7,7 +7,7 @@ import { requireRider } from "@/lib/riders";
 import { directionsUrl } from "@/lib/geo";
 import { formatNaira } from "@/lib/money";
 import { formatNigerianPhone } from "@/lib/phone";
-import { DeliveredForm, HandBackButton, LocationSharer, PickedUpButton } from "@/components/forms/rider-delivery-forms";
+import { DeliveredForm, FailedDeliveryForm, HandBackButton, LocationSharer, PickedUpButton } from "@/components/forms/rider-delivery-forms";
 import { LeafletMap, MAP_COLORS } from "@/components/map";
 import { Badge, Card, Notice, Page, SectionTitle, buttonClass, cx } from "@/components/ui";
 
@@ -23,14 +23,15 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
   const o = a.order;
   const s = o.supermarket;
   const toStore = a.status === "ASSIGNED";
-  const done = a.status === "DELIVERED" || a.status === "CANCELLED";
+  const returning = a.status === "FAILED" && o.status === "DELIVERY_FAILED";
+  const done = a.status === "DELIVERED" || a.status === "CANCELLED" || (a.status === "FAILED" && !returning);
   const itemCount = o.items.reduce((n, i) => n + i.quantity, 0);
   const points = [
     ...(s.latitude !== null && s.longitude !== null ? [{ lat: s.latitude, lng: s.longitude, label: "Store", color: MAP_COLORS.store }] : []),
     ...(o.deliveryLat !== null && o.deliveryLng !== null ? [{ lat: o.deliveryLat, lng: o.deliveryLng, label: "Customer", color: MAP_COLORS.customer }] : []),
     ...(rider.lastLat !== null && rider.lastLng !== null ? [{ lat: rider.lastLat, lng: rider.lastLng, label: "You", color: MAP_COLORS.rider }] : []),
   ];
-  const nav = toStore ? (s.latitude !== null && s.longitude !== null ? directionsUrl(s.latitude, s.longitude) : null) : o.deliveryLat !== null && o.deliveryLng !== null ? directionsUrl(o.deliveryLat, o.deliveryLng) : null;
+  const nav = toStore || returning ? (s.latitude !== null && s.longitude !== null ? directionsUrl(s.latitude, s.longitude) : null) : o.deliveryLat !== null && o.deliveryLng !== null ? directionsUrl(o.deliveryLat, o.deliveryLng) : null;
 
   return (
     <Page className="max-w-3xl">
@@ -52,6 +53,16 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
 
       {a.status === "CANCELLED" && <Notice tone="red" title="This delivery was cancelled" />}
       {a.status === "DELIVERED" && <Notice tone="green" title="Delivered">Your earning is payable and will be included in your next payout.</Notice>}
+      {returning && (
+        <Notice tone="red" title={`Take the order back to ${s.name}`}>
+          You reported this delivery as failed. Return every item to the store; staff will confirm they have it back. You can take new deliveries after that.
+        </Notice>
+      )}
+      {a.status === "FAILED" && !returning && (
+        <Notice tone="gray" title="Returned to the store">
+          {a.earningStatus === "ELIGIBLE" ? "You're paid for this trip." : "No earning for this delivery."}
+        </Notice>
+      )}
 
       {!done && (
         <>
@@ -98,7 +109,7 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
         <Card className="space-y-3">
           {nav && (
             <a href={nav} target="_blank" rel="noopener noreferrer" className={cx(buttonClass("secondary"), "w-full")}>
-              <Navigation className="h-4 w-4" aria-hidden /> Navigate to {toStore ? "the store" : "the customer"}
+              <Navigation className="h-4 w-4" aria-hidden /> Navigate to {toStore || returning ? "the store" : "the customer"}
             </a>
           )}
           {toStore ? (
@@ -107,8 +118,11 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
               <PickedUpButton assignmentId={a.id} />
               <HandBackButton assignmentId={a.id} />
             </>
-          ) : (
-            <DeliveredForm assignmentId={a.id} />
+          ) : returning ? null : (
+            <>
+              <DeliveredForm assignmentId={a.id} />
+              <FailedDeliveryForm assignmentId={a.id} customerPhone={o.deliveryPhone} />
+            </>
           )}
         </Card>
       )}

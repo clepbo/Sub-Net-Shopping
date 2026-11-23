@@ -19,6 +19,22 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string; hint: 
 export function OrderActions({ orderId, status, fulfilment = "PICKUP" }: { orderId: string; status: OrderStatus; fulfilment?: Fulfilment }) {
   const [state, action] = useActionState(updateOrderStatus, {});
   const [cancelling, setCancelling] = useState(false);
+  if (status === "DELIVERY_FAILED") {
+    return (
+      <form action={action} className="space-y-2">
+        <input type="hidden" name="orderId" value={orderId} />
+        <input type="hidden" name="to" value="CANCELLED" />
+        <input type="hidden" name="reason" value="Delivery failed; the items were returned to the store" />
+        <p className="text-sm text-gray-600">
+          When the rider brings the order back, check every item is there and undamaged, then confirm. The stock goes back on your shelf and the customer is refunded.
+        </p>
+        <SubmitButton className="w-full sm:w-auto" pendingText="Confirming…">
+          Confirm items are back
+        </SubmitButton>
+        <FormMessage state={state} />
+      </form>
+    );
+  }
   const next = NEXT[status];
   if (!next && status !== "READY_FOR_PICKUP") return null;
   return (

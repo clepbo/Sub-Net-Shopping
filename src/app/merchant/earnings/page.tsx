@@ -9,7 +9,7 @@ import { Badge, Card, EmptyState, Page, PageTitle, SectionTitle, StatTile } from
 export const metadata: Metadata = { title: "Earnings" };
 
 export default async function EarningsPage() {
-  const { store } = await requireMerchantStore();
+  const { store } = await requireMerchantStore({ managerOnly: true });
   const [summary, settlements] = await Promise.all([
     unsettledSummary(store.id),
     db.settlement.findMany({ where: { supermarketId: store.id }, orderBy: { createdAt: "desc" }, take: 24 }),

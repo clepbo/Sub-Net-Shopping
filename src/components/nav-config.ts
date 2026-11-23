@@ -20,11 +20,20 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean; /** Hidden from the phone tab bar. */ desktopOnly?: boolean };
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+  /** Hidden from the phone tab bar. */
+  desktopOnly?: boolean;
+  /** Store managers only, not other staff. */
+  managerOnly?: boolean;
+};
 
-export type NavRole = "GUEST" | "CUSTOMER" | "SUPERMARKET" | "RIDER" | "ADMIN";
+export type NavRole = "GUEST" | "CUSTOMER" | "SUPERMARKET" | "SUPERMARKET_STAFF" | "RIDER" | "ADMIN";
 
-export const NAV: Record<NavRole, NavItem[]> = {
+const BASE_NAV: Record<Exclude<NavRole, "SUPERMARKET_STAFF">, NavItem[]> = {
   GUEST: [
     { href: "/", label: "Home", icon: Store, exact: true },
     { href: "/categories", label: "Categories", icon: LayoutGrid },
@@ -43,9 +52,10 @@ export const NAV: Record<NavRole, NavItem[]> = {
     { href: "/merchant/orders", label: "Orders", icon: Receipt },
     { href: "/merchant/pickup", label: "Pickup", icon: ScanLine },
     { href: "/merchant/products", label: "Products", icon: Package },
-    { href: "/merchant/earnings", label: "Earnings", icon: Banknote, desktopOnly: true },
-    { href: "/merchant/profile", label: "Store", icon: Store, desktopOnly: true },
-    { href: "/merchant/hours", label: "Hours", icon: Clock, desktopOnly: true },
+    { href: "/merchant/earnings", label: "Earnings", icon: Banknote, desktopOnly: true, managerOnly: true },
+    { href: "/merchant/profile", label: "Store", icon: Store, desktopOnly: true, managerOnly: true },
+    { href: "/merchant/hours", label: "Hours", icon: Clock, desktopOnly: true, managerOnly: true },
+    { href: "/merchant/staff", label: "Staff", icon: Users, desktopOnly: true, managerOnly: true },
     { href: "/account", label: "Account", icon: User },
   ],
   RIDER: [
@@ -66,6 +76,11 @@ export const NAV: Record<NavRole, NavItem[]> = {
     { href: "/admin/activity", label: "Activity", icon: Activity, desktopOnly: true },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
+};
+
+export const NAV: Record<NavRole, NavItem[]> = {
+  ...BASE_NAV,
+  SUPERMARKET_STAFF: BASE_NAV.SUPERMARKET.filter((i) => !i.managerOnly),
 };
 
 export function isActive(pathname: string, item: NavItem) {

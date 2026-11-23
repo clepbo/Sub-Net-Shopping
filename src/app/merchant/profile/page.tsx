@@ -7,7 +7,7 @@ import { Card, Page, PageTitle, SectionTitle } from "@/components/ui";
 export const metadata: Metadata = { title: "Store profile" };
 
 export default async function MerchantProfilePage() {
-  const { store } = await requireMerchantStore();
+  const { store } = await requireMerchantStore({ managerOnly: true });
   const disabled = store.status === "SUSPENDED";
   return (
     <Page>

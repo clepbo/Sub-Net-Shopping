@@ -7,13 +7,15 @@ export const RESET_TTL_MINUTES = 60;
 
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
-/** Creates a single-use reset token for the user and returns the raw token (sent by email only). */
-export async function createResetToken(userId: string, now = new Date()) {
+/** Creates a single-use reset (or staff invite) token and returns the raw token, which is only ever sent to the person. */
+export const INVITE_TTL_MINUTES = 72 * 60;
+
+export async function createResetToken(userId: string, now = new Date(), ttlMinutes = RESET_TTL_MINUTES) {
   const token = randomBytes(32).toString("base64url");
   // Only the newest link works.
   await db.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } });
   await db.passwordResetToken.create({
-    data: { userId, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + RESET_TTL_MINUTES * 60_000) },
+    data: { userId, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + ttlMinutes * 60_000) },
   });
   return token;
 }

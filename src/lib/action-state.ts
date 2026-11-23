@@ -7,6 +7,8 @@ export type ActionState = {
   fieldErrors?: FieldErrors;
   /** Submitted values, echoed back so fields keep their input after an error. */
   values?: Record<string, string>;
+  /** Extra result data for the form to show, e.g. an invite link. */
+  data?: Record<string, string>;
 };
 
 /** Plain string values from FormData (files and passwords excluded). */

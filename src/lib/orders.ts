@@ -17,6 +17,10 @@ import {
   orderTotals,
   ORDER_STATUS_LABEL,
   type OrderActor,
+  customerAtFault,
+  DELIVERY_FAILURE_LABEL,
+  failedDeliveryRefund,
+  type DeliveryFailure,
 } from "./order-rules";
 import { deliveryRates, getSettings } from "./settings";
 import { describePickupTime, findSlot, pickupSlots, REMINDER_LEAD_MINUTES } from "./pickup-slots";
@@ -199,8 +203,9 @@ export async function placeOrder(opts: {
   }
 }
 
-const TIMESTAMP: Partial<Record<OrderStatus, "confirmedAt" | "readyAt" | "collectedAt" | "cancelledAt" | "outForDeliveryAt" | "deliveredAt">> = {
+const TIMESTAMP: Partial<Record<OrderStatus, "confirmedAt" | "readyAt" | "collectedAt" | "cancelledAt" | "outForDeliveryAt" | "deliveredAt" | "deliveryFailedAt">> = {
   CONFIRMED: "confirmedAt",
+  DELIVERY_FAILED: "deliveryFailedAt",
   READY_FOR_PICKUP: "readyAt",
   OUT_FOR_DELIVERY: "outForDeliveryAt",
   DELIVERED: "deliveredAt",
@@ -226,9 +231,19 @@ const DELIVERY_CUSTOMER_MESSAGE: Partial<Record<OrderStatus, string>> = {
  * re-checked inside the transaction so two staff can't act on it at once.
  * Cancelling a paid online order refunds what was paid.
  */
-export async function changeOrderStatus(opts: { orderId: string; actor: OrderActor; actorId: string | null; to: OrderStatus; reason?: string | null }) {
+export async function changeOrderStatus(opts: {
+  orderId: string;
+  actor: OrderActor;
+  actorId: string | null;
+  to: OrderStatus;
+  reason?: string | null;
+  /** For DELIVERY_FAILED: why the rider couldn't hand it over. */
+  failure?: { reason: DeliveryFailure; note?: string | null };
+}) {
   const { orderId, actor, actorId, to } = opts;
   if (to === "CANCELLED" && actor !== "CUSTOMER" && !opts.reason) throw new OrderError("Give the customer a reason for cancelling");
+  if (to === "DELIVERY_FAILED" && !opts.failure) throw new OrderError("Say why the delivery couldn't be completed");
+  let refundKobo: number | undefined;
 
   let ridersToPush: string[] = [];
   const order = await db.$transaction(async (tx) => {
@@ -251,8 +266,11 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
         ...(paidNow ? { paymentStatus: "PAID" as const, paidAt: new Date() } : {}),
         // Only store and system cancellations record a reason; the customer knows why they cancelled.
         ...(to === "CANCELLED" ? { cancelReason: actor === "CUSTOMER" ? null : opts.reason } : {}),
+        ...(to === "DELIVERY_FAILED" ? { deliveryFailReason: opts.failure!.reason, deliveryFailNote: opts.failure!.note || null } : {}),
       },
     });
+    const returned = to === "CANCELLED" && order.status === "DELIVERY_FAILED";
+    if (returned) refundKobo = failedDeliveryRefund(order, order.deliveryFailReason);
     const note =
       to === "CANCELLED"
         ? actor === "CUSTOMER"
@@ -268,12 +286,22 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
             ? "Rider picked up the order"
             : to === "DELIVERED"
               ? "Delivered · customer PIN verified"
-              : to === "READY_FOR_PICKUP" && order.fulfilment === "DELIVERY"
-                ? "Packed and waiting for the rider"
-                : null;
+              : to === "DELIVERY_FAILED"
+                ? `Delivery failed: ${DELIVERY_FAILURE_LABEL[opts.failure!.reason]}${opts.failure!.note ? ` (${opts.failure!.note})` : ""}. Rider returning the order to the store.`
+                : returned
+                  ? `Returned to the store and closed: ${opts.reason}`
+                  : to === "READY_FOR_PICKUP" && order.fulfilment === "DELIVERY"
+                    ? "Packed and waiting for the rider"
+                    : null;
     await tx.orderEvent.create({ data: { orderId, status: to, actorId, note } });
 
-    if (to === "CANCELLED") {
+    if (returned) {
+      // The rider made the trip: they're paid when the customer was at fault.
+      await tx.deliveryAssignment.updateMany({
+        where: { orderId },
+        data: { earningStatus: customerAtFault(order.deliveryFailReason) ? "ELIGIBLE" : "VOID" },
+      });
+    } else if (to === "CANCELLED") {
       // A rider who had accepted the delivery loses the job, and its earning.
       const assignment = await tx.deliveryAssignment.findUnique({ where: { orderId }, include: { rider: true } });
       if (assignment && assignment.status !== "CANCELLED") {
@@ -286,6 +314,15 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
     if (to === "OUT_FOR_DELIVERY") {
       await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "PICKED_UP", pickedUpAt: new Date() } });
     }
+    if (to === "DELIVERY_FAILED") {
+      await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "FAILED" } });
+      await notifyStoreStaff(
+        tx,
+        order.supermarketId,
+        `Delivery failed: ${order.number}`,
+        `The rider couldn't deliver (${DELIVERY_FAILURE_LABEL[opts.failure!.reason].toLowerCase()}) and is bringing the order back. Check the items and confirm the return on the order page.`,
+      );
+    }
     if (to === "DELIVERED") {
       // Earnings become payable only once the delivery is completed (PRD §16).
       await tx.deliveryAssignment.update({ where: { orderId }, data: { status: "DELIVERED", deliveredAt: new Date(), earningStatus: "ELIGIBLE" } });
@@ -293,7 +330,16 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
 
     if (actor === "STORE" || actor === "RIDER") {
       const message = (order.fulfilment === "DELIVERY" && DELIVERY_CUSTOMER_MESSAGE[to]) || CUSTOMER_MESSAGE[to];
-      const body = to === "CANCELLED" ? `${order.supermarket.name} cancelled your order. Reason: ${opts.reason}` : message;
+      const body =
+        to === "DELIVERY_FAILED"
+          ? customerAtFault(opts.failure!.reason)
+            ? `Your rider couldn't deliver: ${DELIVERY_FAILURE_LABEL[opts.failure!.reason].toLowerCase()}. The order is going back to ${order.supermarket.name}; you'll be refunded for the items (the delivery fee isn't refundable).`
+            : `Sorry, your rider couldn't complete the delivery. The order is going back to ${order.supermarket.name} and you'll get a full refund.`
+          : returned
+            ? `${order.supermarket.name} has your order back. ${order.paymentMethod === "ONLINE" && order.paymentStatus === "PAID" ? "Your refund is on its way." : ""}`.trim()
+            : to === "CANCELLED"
+              ? `${order.supermarket.name} cancelled your order. Reason: ${opts.reason}`
+              : message;
       if (body) await tx.notification.create({ data: { userId: order.customerId, title: `Order ${order.number}: ${ORDER_STATUS_LABEL[to].toLowerCase()}`, body } });
     } else if (actor === "CUSTOMER" && order.status !== "AWAITING_PAYMENT") {
       await notifyStoreStaff(tx, order.supermarketId, `Order ${order.number} cancelled`, "The customer cancelled this order.");
@@ -304,7 +350,7 @@ export async function changeOrderStatus(opts: { orderId: string; actor: OrderAct
   });
 
   if (to === "CANCELLED" && order.paymentStatus === "PAID" && order.paymentMethod === "ONLINE") {
-    await refundOrderBalance(orderId, `Order ${order.number} cancelled`);
+    await refundOrderBalance(orderId, `Order ${order.number} cancelled`, refundKobo);
   }
   queuePush(ridersToPush, { title: `New delivery ${order.number}`, body: "Open your dashboard to accept it.", url: "/rider" });
   const pushText: Partial<Record<OrderStatus, string>> = {

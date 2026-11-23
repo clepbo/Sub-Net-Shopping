@@ -16,8 +16,8 @@ const TITLE: Record<string, string> = { SUPERMARKET: "Merchant portal", RIDER: "
  * Layout for merchant, rider and admin areas: a sidebar on desktop, and a
  * compact header with a bottom tab bar on phones.
  */
-export async function DashboardShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
-  const role = user.role as NavRole;
+export async function DashboardShell({ user, navRole, children }: { user: CurrentUser; navRole?: NavRole; children: React.ReactNode }) {
+  const role = navRole ?? (user.role as NavRole);
   // Expires unpaid orders and sends pickup reminders, at most once a minute.
   after(runBackgroundJobsThrottled);
   const unread = await db.notification.count({ where: { userId: user.id, readAt: null } });
@@ -42,7 +42,7 @@ export async function DashboardShell({ user, children }: { user: CurrentUser; ch
             <span className="block leading-none font-extrabold">
               SubNet <span className="text-accent-400">Shopping</span>
             </span>
-            <span className="text-[11px] text-brand-200">{TITLE[role]}</span>
+            <span className="text-[11px] text-brand-200">{TITLE[user.role]}</span>
           </span>
         </Link>
         <nav className="flex-1" aria-label="Dashboard">
@@ -69,7 +69,7 @@ export async function DashboardShell({ user, children }: { user: CurrentUser; ch
                 <span className="block font-extrabold">
                   SubNet <span className="text-accent-400">Shopping</span>
                 </span>
-                <span className="text-[11px] text-brand-200">{TITLE[role]}</span>
+                <span className="text-[11px] text-brand-200">{TITLE[user.role]}</span>
               </span>
             </Link>
             <p className="hidden text-sm text-brand-100 lg:block">

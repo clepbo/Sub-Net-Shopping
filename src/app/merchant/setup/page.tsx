@@ -7,7 +7,7 @@ import { Card, Page, PageTitle } from "@/components/ui";
 export const metadata: Metadata = { title: "Set up your store" };
 
 export default async function MerchantSetupPage() {
-  const { store } = await requireMerchantStore();
+  const { store } = await requireMerchantStore({ managerOnly: true });
   return (
     <Page>
       <div className="flex items-start gap-3 rounded-2xl bg-brand-900 p-4 text-white">

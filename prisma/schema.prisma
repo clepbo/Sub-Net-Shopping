@@ -358,9 +358,19 @@ enum OrderStatus {
   /// Pickup: waiting for the customer. Delivery: waiting for the rider.
   READY_FOR_PICKUP
   OUT_FOR_DELIVERY
+  /// The rider couldn't hand it over and is bringing it back to the store.
+  DELIVERY_FAILED
   DELIVERED
   COLLECTED
   CANCELLED
+}
+
+enum DeliveryFailureReason {
+  CUSTOMER_UNREACHABLE
+  WRONG_ADDRESS
+  CUSTOMER_REFUSED
+  RIDER_ISSUE
+  OTHER
 }
 
 enum Fulfilment {
@@ -417,6 +427,9 @@ model Order {
   deliveryDistanceKm   Float?
   requiredVehicle      VehicleType?
   outForDeliveryAt     DateTime?
+  deliveryFailedAt     DateTime?
+  deliveryFailReason   DeliveryFailureReason?
+  deliveryFailNote     String?
   deliveredAt          DateTime?
   /// The pickup slot the customer chose (start of a 30-minute window).
   pickupAt             DateTime?
@@ -584,6 +597,8 @@ enum AssignmentStatus {
   ASSIGNED
   PICKED_UP
   DELIVERED
+  /// Delivery attempted but not completed; goods go back to the store.
+  FAILED
   CANCELLED
 }
 

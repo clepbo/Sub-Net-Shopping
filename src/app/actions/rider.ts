@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireRider } from "@/lib/riders";
-import { acceptDelivery, activeAssignment, completeDelivery, markPickedUp, recordLocation, releaseDelivery } from "@/lib/deliveries";
+import { acceptDelivery, activeAssignment, completeDelivery, failDelivery, markPickedUp, recordLocation, releaseDelivery } from "@/lib/deliveries";
+import type { DeliveryFailure } from "@/lib/order-rules";
 import { OrderError } from "@/lib/orders";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
@@ -78,6 +79,15 @@ export async function completeDeliveryAction(_prev: ActionState, formData: FormD
   return riderStep(
     () => completeDelivery(rider, String(formData.get("assignmentId") ?? ""), String(formData.get("pin") ?? "")),
     "Delivered! Your earning is now payable.",
+  );
+}
+
+export async function failDeliveryAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { rider } = await requireRider();
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
+  return riderStep(
+    () => failDelivery(rider, String(formData.get("assignmentId") ?? ""), String(formData.get("reason") ?? "") as DeliveryFailure, note),
+    "Reported. Take the order back to the store.",
   );
 }
 
