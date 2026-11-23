@@ -37,6 +37,33 @@ Each approved rider gets a permanent **Monnify virtual account** (*Rider → Cas
 
 For local testing, `npm run monnify:mock` runs a fake Monnify (see `.env.example`).
 
+## SMS alerts
+
+Set `TERMII_API_KEY` (and a registered `TERMII_SENDER_ID`) to send SMS through [Termii](https://termii.com) for the moments that matter:
+
+- **Customers:** order ready for pickup (with PIN), out for delivery (with PIN), delivery failed, order cancelled, and the pickup reminder.
+- **Stores:** each new order, sent to the store's phone.
+- **Riders:** when they're paused for unremitted cash.
+
+Messages are capped at two SMS pages. Without a key, they're printed to the server log.
+
+## Maps
+
+Maps use OpenStreetMap's free tiles by default. That's fine for testing, but its usage policy doesn't allow heavy traffic. Once you have real users, sign up with a hosted tile service such as MapTiler, Stadia Maps or Mapbox (each has a free tier), then set `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_MAP_ATTRIBUTION` (example in `.env.example`) and redeploy. No code change is needed.
+
+## Live POS connection
+
+Under **Store profile → Live POS connection**, a manager can connect any POS in two ways. Prices from the POS are shelf prices; the markup is added for customers.
+
+1. **Push:** create an API key, then the POS or a small connector script sends changes to `POST /api/pos/v1/items` with `Authorization: Bearer <key>`:
+   - full items (`sku`, `name`, `price`, `stock`) create or update listings;
+   - just `sku` plus `stock` and/or `price` makes a quick update.
+
+   `GET` on the same URL lists what SubNet has, for reconciling. Up to 500 items per request.
+2. **Feed:** paste a public `https://` link to a CSV in the import-template columns (a POS's scheduled export, or a Google Sheet published as CSV). SubNet reads it straight away and then every hour.
+
+Every sync is logged on the same page.
+
 ## Shopping list (find one store with everything)
 
 Shoppers tap **Add to list** on products, then open the list (icon next to the cart, or `/basket`). SubNet ranks supermarkets by distance from the shopper's location or a saved address (by price if neither is set):

@@ -31,6 +31,7 @@ import { announceNewOrder, notifyStoreStaff } from "./order-notify";
 import { releaseStock, reserveStock, StockError } from "./stock";
 import { refundOrderBalance } from "./payments";
 import { queuePush } from "./push";
+import { queueSms } from "./sms";
 import { onlinePaymentsAvailable } from "./payments/gateway";
 import { Prisma } from "@/generated/prisma/client";
 import type { Fulfilment, OrderStatus, PaymentMethod, VehicleType } from "@/generated/prisma/enums";
@@ -377,7 +378,16 @@ export async function changeOrderStatus(opts: {
             : to === "CANCELLED"
               ? `${order.supermarket.name} cancelled your order. Reason: ${opts.reason}`
               : message;
-      if (body) await tx.notification.create({ data: { userId: order.customerId, title: `Order ${order.number}: ${ORDER_STATUS_LABEL[to].toLowerCase()}`, body } });
+      if (body) {
+        const title = `Order ${order.number}: ${ORDER_STATUS_LABEL[to].toLowerCase()}`;
+        await tx.notification.create({ data: { userId: order.customerId, title, body } });
+        // The moments that need action get an SMS too.
+        const smsWorthy = to === "OUT_FOR_DELIVERY" || to === "DELIVERY_FAILED" || to === "CANCELLED" || (to === "READY_FOR_PICKUP" && order.fulfilment === "PICKUP");
+        if (smsWorthy) {
+          const pin = to === "OUT_FOR_DELIVERY" ? ` Your delivery PIN is ${order.pickupPin}.` : to === "READY_FOR_PICKUP" ? ` Pickup PIN: ${order.pickupPin}.` : "";
+          afterCommit.push(() => queueSms({ userIds: [order.customerId] }, `SubNet: ${title}. ${body}${pin}`));
+        }
+      }
     } else if (actor === "CUSTOMER" && order.status !== "AWAITING_PAYMENT") {
       await notifyStoreStaff(tx, order.supermarketId, `Order ${order.number} cancelled`, "The customer cancelled this order.");
     } else if (actor === "SYSTEM" && to === "CANCELLED") {

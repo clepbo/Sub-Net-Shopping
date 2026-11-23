@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "./db";
 import { describePickupTime, REMINDER_LEAD_MINUTES } from "./pickup-slots";
 import { sendPush } from "./push";
+import { queueSms } from "./sms";
 
 /**
  * Reminds customers of their chosen pickup time about an hour before.
@@ -28,6 +29,7 @@ export async function sendPickupReminders(now = new Date()) {
     const body = `Collect order ${o.number} at ${o.supermarket.name}. Show your QR code or PIN at the pickup point${o.paymentStatus === "PAID" ? "" : " and pay there"}.`;
     await db.notification.create({ data: { userId: o.customerId, title, body } });
     await sendPush([o.customerId], { title, body, url: `/orders/${o.id}` });
+    queueSms({ userIds: [o.customerId] }, `SubNet: ${title}. ${body} PIN: ${o.pickupPin}.`);
     sent++;
   }
   return sent;

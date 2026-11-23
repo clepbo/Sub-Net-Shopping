@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireEditableStore } from "@/lib/supermarkets";
 import { logActivity } from "@/lib/activity";
+import { feedUrlProblem, revokePosKey, rotatePosKey, syncFeed } from "@/lib/pos/connections";
 import { deleteStoredFile, storeImage } from "@/lib/storage";
 import { lagosTimeToday } from "@/lib/time";
 import { formValues, type ActionState } from "@/lib/action-state";
@@ -172,3 +173,46 @@ export async function updatePosIntegration(_prev: ActionState, formData: FormDat
   return { ok: "POS details saved", values };
 }
 
+
+export async function createPosKeyAction(): Promise<ActionState> {
+  const { user, store, blocked } = await requireEditableStore();
+  if (blocked) return { error: blocked };
+  const key = await rotatePosKey(store.id);
+  await logActivity({ actorId: user.id, action: "supermarket.pos_key_created", targetType: "supermarket", targetId: store.id });
+  refresh();
+  return { ok: "New API key created. Copy it now; it won't be shown again.", data: { key } };
+}
+
+export async function revokePosKeyAction(): Promise<ActionState> {
+  const { user, store, blocked } = await requireEditableStore();
+  if (blocked) return { error: blocked };
+  await revokePosKey(store.id);
+  await logActivity({ actorId: user.id, action: "supermarket.pos_key_revoked", targetType: "supermarket", targetId: store.id });
+  refresh();
+  return { ok: "API key turned off" };
+}
+
+export async function savePosFeedAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { user, store, blocked } = await requireEditableStore();
+  const values = formValues(formData);
+  if (blocked) return { error: blocked, values };
+  const url = String(formData.get("posFeedUrl") ?? "").trim();
+  if (url) {
+    const problem = feedUrlProblem(url);
+    if (problem) return { fieldErrors: { posFeedUrl: problem }, values };
+  }
+  await db.supermarket.update({ where: { id: store.id }, data: { posFeedUrl: url || null, posFeedSyncedAt: null } });
+  await logActivity({ actorId: user.id, action: "supermarket.pos_feed_updated", targetType: "supermarket", targetId: store.id, details: url || "removed" });
+  if (!url) {
+    refresh();
+    return { ok: "Feed removed", values };
+  }
+  try {
+    const run = await syncFeed(store.id);
+    refresh();
+    return { ok: `Connected: ${run.itemsUpdated} products synced. We'll check the feed every hour.${run.error ? ` (${run.error})` : ""}`, values };
+  } catch (err) {
+    refresh();
+    return { error: `Saved, but the first sync failed: ${err instanceof Error ? err.message : err}`, values };
+  }
+}

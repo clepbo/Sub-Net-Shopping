@@ -127,6 +127,12 @@ model Supermarket {
   posProvider         String?
   posHasApi           Boolean?
   posIntegrationNotes String?
+  /// Live POS connection: SHA-256 of the store's API key (shown once), and its last 4 characters.
+  posApiKeyHash       String?   @unique
+  posApiKeyHint       String?
+  /// Live POS connection: a CSV feed URL SubNet re-reads every hour.
+  posFeedUrl          String?
+  posFeedSyncedAt     DateTime?
 
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt

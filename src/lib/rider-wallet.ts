@@ -9,6 +9,8 @@ import { getSettings } from "./settings";
 import { overLimit } from "./rider-wallet-rules";
 export { cashJobAllowed, overLimit } from "./rider-wallet-rules";
 import { queuePush } from "./push";
+import { queueSms } from "./sms";
+import { formatNaira } from "./money";
 import { createReservedAccount, monnifyConfigured } from "./payments/monnify";
 import type { Prisma, WalletEntryType } from "@/generated/prisma/client";
 
@@ -44,8 +46,11 @@ async function post(
   return { balanceKobo, change, userId: rider.userId };
 }
 
-function announce(result: { change: string | null; userId: string }) {
-  if (result.change === "blocked") queuePush([result.userId], { title: "Account paused", body: "Account suspended. Please remit collected cash.", url: "/rider/wallet" });
+function announce(result: { change: string | null; userId: string; balanceKobo: number }) {
+  if (result.change === "blocked") {
+    queuePush([result.userId], { title: "Account paused", body: "Account suspended. Please remit collected cash.", url: "/rider/wallet" });
+    queueSms({ userIds: [result.userId] }, `SubNet: ${BLOCKED_MESSAGE} You owe ${formatNaira(-result.balanceKobo)}.`);
+  }
   if (result.change === "unblocked") queuePush([result.userId], { title: "You're back on", body: "You can take deliveries again.", url: "/rider" });
 }
 

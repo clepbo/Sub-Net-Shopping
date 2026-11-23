@@ -5,6 +5,15 @@ import { useEffect } from "react";
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
 
+/**
+ * Map tiles. OpenStreetMap's free tiles are fine while traffic is small; set
+ * NEXT_PUBLIC_MAP_TILE_URL (and its attribution) to a hosted service such as
+ * MapTiler, Stadia Maps or Mapbox once it grows. See README.
+ */
+const TILE_URL = process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_ATTRIBUTION =
+  process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
 export type MapPoint = { lat: number; lng: number; label: string; color: string };
 
 /** Benin City centre, used when there's nothing to show yet. */
@@ -32,7 +41,7 @@ export default function LeafletMap({ points, onPick, className }: { points: MapP
   const center = points[0] ?? { ...BENIN_CITY };
   return (
     <MapContainer center={[center.lat, center.lng]} zoom={13} scrollWheelZoom={false} className={className} style={{ zIndex: 0 }}>
-      <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
       {points.map((p) => (
         <CircleMarker key={p.label} center={[p.lat, p.lng]} radius={9} pathOptions={{ color: "#fff", weight: 3, fillColor: p.color, fillOpacity: 1 }}>
           <Tooltip permanent direction="top" offset={[0, -8]}>
