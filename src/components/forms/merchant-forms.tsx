@@ -146,7 +146,7 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
   );
 }
 
-export function ScheduleForm({ schedule, disabled }: { schedule: Schedule; disabled: boolean }) {
+export function ScheduleForm({ schedule, disabled, setup = false }: { schedule: Schedule; disabled: boolean; setup?: boolean }) {
   const [state, action] = useActionState(updateSchedule, {});
   const v = state.values;
   // After a submit, the echoed values are the source of truth (unchecked boxes are absent).
@@ -240,7 +240,8 @@ export function ScheduleForm({ schedule, disabled }: { schedule: Schedule; disab
           </div>
         </section>
 
-        <SubmitButton className="w-full">Save hours</SubmitButton>
+        {setup && <input type="hidden" name="finishSetup" value="1" />}
+        <SubmitButton className="w-full">{setup ? "Save hours and open my dashboard" : "Save hours"}</SubmitButton>
       </fieldset>
       <FormMessage state={state} />
     </form>

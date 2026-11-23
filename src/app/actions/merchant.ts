@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireEditableStore } from "@/lib/supermarkets";
 import { logActivity } from "@/lib/activity";
@@ -71,6 +72,12 @@ export async function updateSchedule(_prev: ActionState, formData: FormData): Pr
     ),
   ]);
   await logActivity({ actorId: user.id, action: "supermarket.hours_updated", targetType: "supermarket", targetId: store.id });
+  if (formData.get("finishSetup") === "1" && !store.onboardedAt) {
+    await db.supermarket.update({ where: { id: store.id }, data: { onboardedAt: new Date() } });
+    await logActivity({ actorId: user.id, action: "supermarket.onboarded", targetType: "supermarket", targetId: store.id });
+    refresh();
+    redirect("/merchant?welcome=1");
+  }
   refresh();
   return { ok: "Opening hours saved", values };
 }
@@ -164,3 +171,4 @@ export async function updatePosIntegration(_prev: ActionState, formData: FormDat
   refresh();
   return { ok: "POS details saved", values };
 }
+

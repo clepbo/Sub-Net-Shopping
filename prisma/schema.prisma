@@ -60,6 +60,7 @@ model User {
   pushSubscriptions PushSubscription[]
   orders            Order[]            @relation("CustomerOrders")
   orderEvents       OrderEvent[]
+  resetTokens       PasswordResetToken[]
 
   @@index([role, status])
 }
@@ -80,6 +81,8 @@ model Supermarket {
   owner        User           @relation("SupermarketOwner", fields: [ownerId], references: [id])
   status       ApprovalStatus @default(PENDING)
   statusReason String?
+  /// Set when the merchant finishes the after-approval setup (opening hours).
+  onboardedAt  DateTime?
 
   name               String
   contactName        String
@@ -686,4 +689,33 @@ model PlatformSetting {
   value     String
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+// ─── Account security ─────────────────────────────────────────────────
+
+/// One-time password reset links. Only a hash of the token is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// Sign-in and reset attempts, for slowing down password guessing.
+model AuthAttempt {
+  id         String   @id @default(cuid())
+  /// "login" or "reset"
+  kind       String
+  identifier String
+  ip         String?
+  success    Boolean
+  createdAt  DateTime @default(now())
+
+  @@index([kind, identifier, createdAt])
+  @@index([kind, ip, createdAt])
 }

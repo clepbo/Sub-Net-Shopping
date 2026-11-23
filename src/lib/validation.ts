@@ -94,6 +94,18 @@ export const login = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
+export const passwordResetRequest = z.object({
+  identifier: z.string().trim().min(1, "Enter your email or phone number").max(200),
+});
+
+export const passwordReset = z
+  .object({
+    token: z.string().min(10, "This reset link is invalid"),
+    password,
+    confirmPassword: z.string(),
+  })
+  .superRefine(confirmPasswords);
+
 export const profileUpdate = z.object({
   firstName: name("First name"),
   lastName: name("Last name"),

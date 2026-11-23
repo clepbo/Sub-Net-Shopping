@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CheckCircle2, Circle, ExternalLink } from "lucide-react";
 import { availabilityOf, requireMerchantStore } from "@/lib/supermarkets";
 import { inventoryCounts } from "@/lib/merchant-products";
@@ -14,6 +15,8 @@ import { vapidPublicKey } from "@/lib/push";
 
 export default async function MerchantDashboard({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
   const { store } = await requireMerchantStore();
+  // Newly approved: opening hours come first.
+  if (store.status === "APPROVED" && !store.onboardedAt) redirect("/merchant/setup");
   const { welcome } = await searchParams;
   const now = new Date();
   const a = availabilityOf(store, now);
@@ -51,14 +54,14 @@ export default async function MerchantDashboard({ searchParams }: { searchParams
         </Link>
       </nav>
 
-      {welcome && store.status === "PENDING" ? (
+      {welcome && store.status === "APPROVED" ? (
         <WelcomePanel
-          title="Registration received — your account is ready"
-          intro={`Thanks for registering ${store.name}. You're signed in and can set up your store now.`}
+          title="You're live on SubNet"
+          intro={`Your hours are saved. Customers can now find ${store.name}.`}
           steps={[
-            { title: "Our team reviews your supermarket", body: "We check your business details. You'll get a notification here as soon as you're approved." },
-            { title: "Set up while you wait", body: "Add your logo and map location, opening hours, and your products, so you're ready on day one.", href: "/merchant/profile" },
-            { title: "Go live", body: "Once approved, customers can find your store, order and pay." },
+            { title: "Add your products", body: "Add them one by one or import a spreadsheet from your POS.", href: "/merchant/products" },
+            { title: "Add your logo and map pin", body: "Helps customers recognise you and find the nearest store.", href: "/merchant/profile" },
+            { title: "Turn on order alerts", body: "Get a notification on this device whenever an order comes in." },
           ]}
         />
       ) : (

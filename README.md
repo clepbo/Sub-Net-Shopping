@@ -6,6 +6,16 @@ It works on phones and desktop browsers: phones get a compact header and a botto
 
 This repository implements all five phases of the product requirements document (PRD §24–28): **core foundation**, **products & inventory**, **cart & orders**, **payments & pickup**, and **delivery & riders**.
 
+## Sign-up, approval & account security
+
+- **Create account** asks first whether you're a shopper, a supermarket or a rider. Supermarket and rider sign-up are split into three short steps; supermarkets can add a logo and (optionally) pin the store on a map.
+- Sign-in and sign-up pages have no shop header or footer, just a **Back** button.
+- **Approval gate:** a supermarket or rider sees only a "Waiting for approval" screen until an admin approves them. Registering again with the same email or phone says the application is already waiting. Admins see everything waiting on the **Admin → Overview** page, with a **Review** button for each.
+- **After approval** a supermarket first sets its opening and closing hours (`/merchant/setup`), then lands on its dashboard.
+- **Forgot password:** emails a one-time link valid for 60 minutes; using it signs the account out everywhere else. Set `RESEND_API_KEY` and `EMAIL_FROM` (see `.env.example`); without them the link is printed to the server log.
+- **Login protection:** 5 wrong passwords for one account (or 30 from one network) in 15 minutes locks sign-in for that account for the rest of the window. Reset requests are limited to 3 an hour per account.
+- **Legal pages:** `/terms`, `/privacy`, `/refunds`. They're a sensible starting point written for Nigeria (NDPA 2023, FCCPA 2018); have a lawyer review them before launch.
+
 ## Pickup times & reminders
 
 - Customers choose a **pickup time** at checkout: 30-minute slots today and the next two days, inside the store's pickup window (or opening hours) and at least the store's **preparation time** ahead (set on the Hours page; default 30 minutes). After today's last order time, slots start tomorrow; a pickup pause moves the earliest slot past the pause. The server re-checks the chosen time, so it can't be outside the store's rules.

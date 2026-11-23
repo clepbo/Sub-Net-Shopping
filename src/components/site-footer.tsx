@@ -5,12 +5,13 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
   { title: "Shop", links: [["Supermarkets", "/"], ["All categories", "/categories"], ["All products", "/products"], ["Search", "/search"]] },
   { title: "Supermarkets", links: [["Sell on SubNet", "/register/supermarket"], ["Merchant sign in", "/login"]] },
   { title: "Riders", links: [["Deliver with SubNet", "/register/rider"], ["Rider sign in", "/login"]] },
+  { title: "Help", links: [["Terms of Service", "/terms"], ["Privacy Policy", "/privacy"], ["Refund Policy", "/refunds"]] },
 ];
 
 export function SiteFooter() {
   return (
     <footer className="mt-10 bg-brand-950 text-brand-100">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-5">
         <div className="space-y-3">
           <Link href="/" className="flex items-center gap-2 text-white">
             <LogoMark className="h-8 w-8" />

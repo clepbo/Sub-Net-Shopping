@@ -53,17 +53,17 @@ export function AuthLayout({
 }) {
   const panel = PANEL[audience];
   return (
-    <div className="px-4 py-6 lg:px-6 lg:py-12">
+    <div className="w-full px-4 pt-2 pb-6 lg:py-8">
       <div
         className={cx(
-          "mx-auto grid overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
-          wide ? "max-w-6xl" : "max-w-5xl",
+          "mx-auto grid overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
+          wide ? "max-w-4xl" : "max-w-[52rem]",
         )}
       >
-        <aside className="relative hidden bg-gradient-to-br from-brand-900 to-brand-700 p-10 text-white lg:block">
-          <div className="sticky top-40 space-y-8">
+        <aside className="relative hidden bg-gradient-to-br from-brand-900 to-brand-700 p-9 text-white lg:block">
+          <div className="sticky top-10 space-y-7">
             <LogoMark className="h-16 w-16 shadow-lg" />
-            <h2 className="text-3xl leading-tight font-extrabold">{panel.title}</h2>
+            <h2 className="text-2xl leading-tight font-extrabold">{panel.title}</h2>
             <ul className="space-y-4">
               {panel.points.map((p) => (
                 <li key={p} className="flex gap-3 text-brand-100">
@@ -75,11 +75,11 @@ export function AuthLayout({
             <p className="text-sm text-brand-200">Benin City, Edo State</p>
           </div>
         </aside>
-        <div className="p-5 sm:p-8 lg:p-12">
-          <div className={cx("mx-auto space-y-6", wide ? "max-w-xl" : "max-w-md")}>
+        <div className="p-5 sm:p-8 lg:p-10">
+          <div className={cx("mx-auto space-y-6", wide ? "max-w-md" : "max-w-sm")}>
             <div>
               {eyebrow && <p className="text-[11px] font-bold tracking-wider text-brand-700 uppercase">{eyebrow}</p>}
-              <h1 className="text-2xl font-extrabold text-gray-900 lg:text-3xl">{title}</h1>
+              <h1 className="text-2xl font-extrabold text-gray-900">{title}</h1>
               {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
             </div>
             {children}

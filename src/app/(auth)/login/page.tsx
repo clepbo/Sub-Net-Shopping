@@ -15,22 +15,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to your SubNet account: customers, supermarkets, riders and admins all sign in here."
+      subtitle="Shoppers, supermarkets, staff, riders and admins all sign in here."
       footer={
         <>
           <p>
             New to SubNet?{" "}
             <Link href="/register" className="font-bold text-brand-700 underline">
               Create an account
-            </Link>
-          </p>
-          <p className="text-gray-500">
-            <Link href="/register/supermarket" className="underline">
-              Register a supermarket
-            </Link>{" "}
-            ·{" "}
-            <Link href="/register/rider" className="underline">
-              Become a rider
             </Link>
           </p>
         </>
