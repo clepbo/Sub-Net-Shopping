@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // dynamically per request rather than using Cache Components.
   cacheComponents: false,
   experimental: {
+    // Opt in to Next.js's security-upgrade prompts for coding agents.
+    agentUpgrade: "security",
     serverActions: {
       // Image uploads are capped at 2 MB; leave room for multipart overhead.
       bodySizeLimit: "3mb",
