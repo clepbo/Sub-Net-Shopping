@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, destroySession } from "@/lib/session";
+import { mergeGuestCart } from "@/lib/cart-owner";
 import { ROLE_HOME } from "@/lib/session-token";
 import { normalizeNigerianPhone } from "@/lib/phone";
 import { logActivity, notify } from "@/lib/activity";
@@ -48,6 +49,12 @@ async function takenIdentity(email: string, phone: string) {
   return errors;
 }
 
+/** Only same-site relative paths, so `next` can't send anyone off-site. */
+function safeNext(value: FormDataEntryValue | null) {
+  const next = String(value ?? "");
+  return next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : null;
+}
+
 function isUniqueViolation(err: unknown) {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 }
@@ -88,7 +95,10 @@ export async function registerCustomer(_prev: ActionState, formData: FormData): 
   // Bookkeeping runs after the response so sign-up feels instant.
   after(() => logActivity({ actorId: newUserId, action: "customer.registered", targetType: "user", targetId: newUserId }));
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });
-  redirect("/?welcome=1");
+  // Anything they put in their cart as a guest comes with them.
+  await mergeGuestCart(user.id);
+  const next = safeNext(formData.get("next"));
+  redirect(next ? `${next}${next.includes("?") ? "&" : "?"}welcome=1` : "/?welcome=1");
 }
 
 const DEFAULT_HOURS = Array.from({ length: 7 }, (_, dayOfWeek) => ({
@@ -258,9 +268,8 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
   after(() => clearFailures(key));
 
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });
-  const next = String(formData.get("next") ?? "");
-  // Only follow same-site relative paths.
-  redirect(next.startsWith("/") && !next.startsWith("//") ? next : ROLE_HOME[user.role]);
+  if (user.role === "CUSTOMER") await mergeGuestCart(user.id);
+  redirect(safeNext(formData.get("next")) ?? ROLE_HOME[user.role]);
 }
 
 const RESET_SENT = "If an account matches, we've sent a reset link to its email address. Check your inbox (and spam folder).";
@@ -313,6 +322,7 @@ export async function completePasswordReset(_prev: ActionState, formData: FormDa
     ]),
   );
   await createSession({ uid: user.id, role: user.role, ver: user.sessionVersion });
+  if (user.role === "CUSTOMER") await mergeGuestCart(user.id);
   redirect(ROLE_HOME[user.role]);
 }
 

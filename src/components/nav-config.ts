@@ -39,6 +39,7 @@ const BASE_NAV: Record<Exclude<NavRole, "SUPERMARKET_STAFF">, NavItem[]> = {
     { href: "/", label: "Home", icon: Store, exact: true },
     { href: "/categories", label: "Categories", icon: LayoutGrid },
     { href: "/search", label: "Search", icon: Search },
+    { href: "/cart", label: "Cart", icon: ShoppingCart },
     { href: "/login", label: "Sign in", icon: User },
   ],
   CUSTOMER: [

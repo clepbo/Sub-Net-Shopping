@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Bell, ChevronDown, LayoutDashboard, LayoutGrid, MapPin, ShoppingCart, User } from "lucide-react";
 import { cartCount } from "@/lib/cart";
+import { cartOwner } from "@/lib/cart-owner";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { listCategories } from "@/lib/catalog";
@@ -14,12 +15,11 @@ const ROLE_LABEL = { CUSTOMER: null, SUPERMARKET: "Merchant", RIDER: "Rider", AD
 export async function SiteHeader() {
   const [user, categories] = await Promise.all([getCurrentUser(), listCategories()]);
   const active = user?.status === "ACTIVE" ? user : null;
-  const [unread, inCart] = active
-    ? await Promise.all([
-        db.notification.count({ where: { userId: active.id, readAt: null } }),
-        active.role === "CUSTOMER" ? cartCount(active.id) : Promise.resolve(0),
-      ])
-    : [0, 0];
+  const owner = await cartOwner();
+  const [unread, inCart] = await Promise.all([
+    active ? db.notification.count({ where: { userId: active.id, readAt: null } }) : Promise.resolve(0),
+    owner && owner !== "not-a-shopper" ? cartCount(owner) : Promise.resolve(0),
+  ]);
   const roleLabel = active ? ROLE_LABEL[active.role] : null;
 
   const bell = active && (

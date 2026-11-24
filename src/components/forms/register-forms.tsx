@@ -21,10 +21,11 @@ function PhoneField({ state, label = "Phone number" }: { state: ActionState; lab
   return <Field label={label} name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0803 123 4567" required state={state} />;
 }
 
-export function CustomerRegisterForm() {
+export function CustomerRegisterForm({ next }: { next?: string }) {
   const [state, action] = useActionState(registerCustomer, {});
   return (
     <form action={action} className="space-y-4" noValidate>
+      {next && <input type="hidden" name="next" value={next} />}
       <FormMessage state={state} />
       <div className="grid grid-cols-2 gap-3">
         <Field label="First name" name="firstName" autoComplete="given-name" state={state} />

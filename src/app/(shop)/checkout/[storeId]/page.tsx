@@ -16,7 +16,8 @@ import { Card, Notice, Page, PageTitle, SectionTitle } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Checkout" };
 
-export default async function CheckoutPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function CheckoutPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ welcome?: string }> }) {
+  const { welcome } = await searchParams;
   const user = await requireUser("CUSTOMER");
   const { storeId } = await params;
   const group = (await getCart(user.id)).find((g) => g.supermarket.id === storeId);
@@ -52,6 +53,11 @@ export default async function CheckoutPage({ params }: { params: Promise<{ store
         <ArrowLeft className="h-4 w-4" aria-hidden /> Cart
       </Link>
       <PageTitle title="Checkout" subtitle={s.name} />
+      {welcome && (
+        <Notice tone="green" title="Your account is ready">
+          Everything from your cart is here. Choose how you&apos;d like to get it and place your order.
+        </Notice>
+      )}
       {group.blocker && (
         <Notice tone="yellow" title="This order can't be placed right now">
           {group.blocker}

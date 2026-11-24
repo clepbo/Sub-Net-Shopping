@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "./db";
+import { ownerWhere, type CartOwner } from "./cart-owner";
 import { computeAvailability, type Availability as StoreAvailability } from "./availability";
 import { VISIBLE_AVAILABILITY } from "./inventory";
 import { pickupSlots, type SlotSchedule } from "./pickup-slots";
@@ -74,9 +75,10 @@ export function pickupBlocker(store: SlotSchedule, now: Date = new Date()): stri
   return null;
 }
 
-/** The customer's cart, grouped by supermarket, with every line re-checked. */
-export async function getCart(userId: string, now = new Date()): Promise<CartGroup[]> {
-  const items = await db.cartItem.findMany({ where: { userId }, include: cartInclude, orderBy: { createdAt: "asc" } });
+/** A customer's or guest's cart, grouped by supermarket, with every line re-checked. */
+export async function getCart(owner: string | CartOwner, now = new Date()): Promise<CartGroup[]> {
+  const where = typeof owner === "string" ? { userId: owner } : ownerWhere(owner);
+  const items = await db.cartItem.findMany({ where, include: cartInclude, orderBy: { createdAt: "asc" } });
   const groups = new Map<string, CartGroup>();
   for (const item of items) {
     const inv = item.inventory;
@@ -122,7 +124,7 @@ export async function getCart(userId: string, now = new Date()): Promise<CartGro
   return [...groups.values()];
 }
 
-export async function cartCount(userId: string) {
-  const r = await db.cartItem.aggregate({ where: { userId }, _sum: { quantity: true } });
+export async function cartCount(owner: string | CartOwner) {
+  const r = await db.cartItem.aggregate({ where: typeof owner === "string" ? { userId: owner } : ownerWhere(owner), _sum: { quantity: true } });
   return r._sum.quantity ?? 0;
 }

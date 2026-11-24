@@ -64,6 +64,12 @@ Under **Store profile → Live POS connection**, a manager can connect any POS i
 
 Every sync is logged on the same page.
 
+## Guest shopping
+
+Anyone can browse and fill a cart without an account. A guest cart is kept for 30 days, tied to a private cookie in that browser.
+
+At checkout, guests are asked to create an account (or sign in), and are then taken straight back to the same checkout. Everything in the guest cart moves into the account; if the account already has some of the same items, the quantities are added together. Signing in later from a guest cart merges it the same way.
+
 ## Shopping list (find one store with everything)
 
 Shoppers tap **Add to list** on products, then open the list (icon next to the cart, or `/basket`). SubNet ranks supermarkets by distance from the shopper's location or a saved address (by price if neither is set):

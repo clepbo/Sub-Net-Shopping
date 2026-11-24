@@ -9,6 +9,7 @@ const SECTIONS: { prefix: string; roles: Role[] | "any" }[] = [
   { prefix: "/rider", roles: ["RIDER"] },
   { prefix: "/admin", roles: ["ADMIN"] },
   { prefix: "/account", roles: "any" },
+  // Guests can use the cart; checkout asks them to create an account first.
   { prefix: "/cart", roles: ["CUSTOMER"] },
   { prefix: "/checkout", roles: ["CUSTOMER"] },
   { prefix: "/orders", roles: ["CUSTOMER"] },
@@ -21,6 +22,12 @@ export async function proxy(request: NextRequest) {
   if (!section) return NextResponse.next();
 
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  if (!session && section.prefix === "/cart") return NextResponse.next();
+  if (!session && section.prefix === "/checkout") {
+    const url = new URL("/checkout-account", request.url);
+    url.searchParams.set("next", pathname + search);
+    return NextResponse.redirect(url);
+  }
   if (!session) {
     const url = new URL("/login", request.url);
     url.searchParams.set("next", pathname + search);

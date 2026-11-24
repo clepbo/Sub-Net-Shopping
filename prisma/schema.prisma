@@ -370,8 +370,11 @@ model PosSyncRun {
 /// supermarket's items check out as a separate order.
 model CartItem {
   id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The signed-in customer's cart, or (when null) a guest's: see guestId.
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Guest cart key from the browser's cart cookie; moved to the account on sign-up or sign-in.
+  guestId     String?
   inventoryId String
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   quantity    Int
@@ -379,6 +382,8 @@ model CartItem {
   updatedAt   DateTime  @updatedAt
 
   @@unique([userId, inventoryId])
+  @@unique([guestId, inventoryId])
+  @@index([updatedAt])
 }
 
 enum OrderStatus {

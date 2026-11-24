@@ -5,7 +5,8 @@ import { AuthLayout } from "@/components/auth-layout";
 
 export const metadata: Metadata = { title: "Create a shopper account" };
 
-export default function RegisterCustomerPage() {
+export default async function RegisterCustomerPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
   return (
     <AuthLayout
       eyebrow="For shoppers"
@@ -14,13 +15,13 @@ export default function RegisterCustomerPage() {
       footer={
         <p>
           Already have an account?{" "}
-          <Link href="/login" className="font-bold text-brand-700 underline">
+          <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="font-bold text-brand-700 underline">
             Sign in
           </Link>
         </p>
       }
     >
-      <CustomerRegisterForm />
+      <CustomerRegisterForm next={next?.startsWith("/") && !next.startsWith("//") ? next : undefined} />
     </AuthLayout>
   );
 }

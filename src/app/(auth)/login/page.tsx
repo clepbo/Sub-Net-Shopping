@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <>
           <p>
             New to SubNet?{" "}
-            <Link href="/register" className="font-bold text-brand-700 underline">
+            <Link href={next ? `/register/customer?next=${encodeURIComponent(next)}` : "/register"} className="font-bold text-brand-700 underline">
               Create an account
             </Link>
           </p>

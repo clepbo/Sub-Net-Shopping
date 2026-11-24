@@ -2,7 +2,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ImageOff, ShoppingCart, Store } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { cartOwner } from "@/lib/cart-owner";
 import { getCart } from "@/lib/cart";
 import { formatNaira } from "@/lib/money";
 import { CartQuantity, RemoveFromCart } from "@/components/forms/cart-forms";
@@ -12,8 +13,11 @@ import { Card, EmptyState, LinkButton, Notice, Page, PageTitle, buttonClass, cx 
 export const metadata: Metadata = { title: "Cart" };
 
 export default async function CartPage() {
-  const user = await requireUser("CUSTOMER");
-  const groups = await getCart(user.id);
+  const owner = await cartOwner();
+  if (owner === "not-a-shopper") redirect("/forbidden");
+  const groups = owner ? await getCart(owner) : [];
+  const guest = !owner?.userId;
+  const checkoutHref = (storeId: string) => (guest ? `/checkout-account?next=${encodeURIComponent(`/checkout/${storeId}`)}` : `/checkout/${storeId}`);
 
   if (groups.length === 0) {
     return (
@@ -33,8 +37,16 @@ export default async function CartPage() {
     <Page>
       <PageTitle
         title="Your cart"
-        subtitle={groups.length > 1 ? `Items from ${groups.length} supermarkets. Each supermarket is a separate order.` : "Reserve & Pick Up, pay at the store."}
+        subtitle={groups.length > 1 ? `Items from ${groups.length} supermarkets. Each supermarket is a separate order.` : "Pick up or get it delivered: you choose at checkout."}
       />
+      {guest && (
+        <Notice tone="gray" title="You're shopping as a guest">
+          Your cart is saved on this device. You&apos;ll create an account at checkout, and everything here comes with you.{" "}
+          <Link href="/login?next=/cart" className="font-bold underline">
+            Have an account? Sign in
+          </Link>
+        </Notice>
+      )}
       <div className="space-y-5">
         {groups.map((g) => (
           <Card key={g.supermarket.id} className="space-y-4">
@@ -81,7 +93,7 @@ export default async function CartPage() {
                   Checkout unavailable
                 </span>
               ) : (
-                <LinkButton href={`/checkout/${g.supermarket.id}`}>Checkout at {g.supermarket.name}</LinkButton>
+                <LinkButton href={checkoutHref(g.supermarket.id)}>Checkout at {g.supermarket.name}</LinkButton>
               )}
             </div>
             {g.blocker && (
